@@ -1,0 +1,18 @@
+The most common calling convention for the Motorola 68000 series is:
+  - d0, d1, a0 and a1 are scratch registers
+  - All other registers are callee-saved
+  - a6 is the frame pointer, which can be disabled by a compiler option
+  - Parameters are pushed onto the stack, from right to left
+  - Return value is stored in d0
+
+a7 is stack pointer
+
+
+move.b = byte = char
+move.w = word = short
+move.l = long = int
+
+low res screen:
+  - 320x200x4 (4bpp / 16 colors)
+  - 64000 pixels
+  - 32000 bytes screen memory (4bpp)
