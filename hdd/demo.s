@@ -33,7 +33,7 @@
 	add.l	#12,sp
 
 	; Run demo
-	jsr	demo
+	;jsr	demo
 
 	; Restore old resolution
 	move.w	old_resolution,d0
@@ -46,7 +46,7 @@
 	add.l	#12,sp
 
 	; Restore old palette
-	move.l	old_palette,a0
+	move.l	#old_palette,a0
 	movem.l	(a0),d0-d7
 	movem.l	d0-d7,$ffff8240
 
