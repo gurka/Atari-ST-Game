@@ -33,7 +33,7 @@
 	add.l	#12,sp
 
 	; Run demo
-	;jsr	demo
+	jsr	demo
 
 	; Restore old resolution
 	move.w	old_resolution,d0
@@ -63,11 +63,13 @@
 demo:
 	; Setup screen buffers
 	move.l	#screen_buffer,d0
-	add.l	#255,d0
 	clr.b	d0
 	move.l	d0,screen_curr
 	add.l	#32000,d0
 	move.l	d0,screen_next
+
+	; Clear the screen
+	jsr	clear_screen
 
 	; Set palette
 	clr.w	$ffff8240
@@ -77,19 +79,24 @@ demo:
 	clr.l	d7
 
 	; Main loop
-.loop:
+.demo_loop:
+	; Swap screens
+	move.l	screen_next,d0
+	move.l	screen_curr,screen_next
+	move.l	d0,screen_curr
+	lsr.l	#8,d0
+	move.b	d0,$ffff8203
+	lsr.w	#8,d0
+	move.b	d0,$ffff8201
+
 	; Wait for VBL
 	move.w	#37,-(sp)
 	trap	#14
 	addq.l	#2,sp
 
-	; Swap screens
-	move.l	#screen_next,d0
-	move.l	#screen_curr,screen_next
-	move.l	d0,screen_curr
-	lsr.w	#8,d0
-	move.l	d0,$ffff8200.w
-
+	; Time test
+	move.w	#$707,$ffff8240
+	
 	; Clear screen
 	jsr	clear_screen
 
@@ -98,35 +105,37 @@ demo:
 	move.l	d7,d6
 	move.l	#160,d5
 	mulu	d6,d5
-	move.l	#screen_next,a6
-	lea	(a6,d5),a6
+	move.l	screen_next,a6
+	add.w	d5,a6
 
 	; Draw line (320 pixels to a6)
 	; 320 pixels = 160 bytes = 80 w = 40 l
 	; Color = 15
-	add.b	#39,d6
-.draw_line:
-	clr.l	(a6)
-	neg.l	(a6)
+	move.b	#39,d6
+.demo_draw_line:
+	move.l	#-1,(a6)
 	adda	#4,a6
-	dbra	d6,.draw_line
+	dbra	d6,.demo_draw_line
 
 	; Increase counter,reset if 200
 	addq.b	#1,d7
 	cmp.b	#200,d7
-	bne	.skip_counter
+	bne	.demo_skip_counter
 	clr.b	d7
-.skip_counter:
+.demo_skip_counter:
 
-	; Loop if spacebar pressed
-	cmpi.b	#$39,$fffffc02
-	beq	.loop
+	; Time test
+	move.w	#$0,$ffff8240
+
+	; Loop if spacebar not pressed
+	cmp.b	#$39,$fffc02
+	bne	.demo_loop
 
 	rts
 
 clear_screen:
 	; Screen buffer to a0
-	move.l	4(sp),a0
+	move.l	screen_next,a0
 
 	; Save registers
 	movem.l	d2-d7/a2-a3,-(sp)
@@ -148,7 +157,7 @@ clear_screen:
 
 	; 200 lines (full screen)
 	move.w	#199,d7
-.loop2:
+.clear_screen_loop:
 	; Clear 4 * 10 * 4 bytes = 160 bytes = 320 pixels = 1 line
 	movem.l	d0-d6/a1-a3,-(a0)
 	movem.l	d0-d6/a1-a3,-(a0)
@@ -157,7 +166,7 @@ clear_screen:
 
 	; Jump to end of next line (320 bytes = 640 pixels = 2 lines)
 	lea	320(a0),a0
-	dbra	d7,.loop2
+	dbra	d7,.clear_screen_loop
 
 	; Restore registers
 	movem.l	(sp)+,d2-d7/a2-a3
@@ -175,4 +184,4 @@ screen_next	dc.l	0
 
 old_palette	ds.l	8
 		ds.b	255
-screen_buffer	ds.b	32000
+screen_buffer	ds.b	64000

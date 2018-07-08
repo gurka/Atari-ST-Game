@@ -5,14 +5,43 @@ The most common calling convention for the Motorola 68000 series is:
   - Parameters are pushed onto the stack, from right to left
   - Return value is stored in d0
 
+===========================================================
+
 a7 is stack pointer
 
+===========================================================
 
 move.b = byte = char
 move.w = word = short
 move.l = long = int
 
+===========================================================
+
 low res screen:
   - 320x200x4 (4bpp / 16 colors)
   - 64000 pixels
   - 32000 bytes screen memory (4bpp)
+
+===========================================================
+
+Double buffering + time test:
+
+  1) Logic + draw on buffer #1
+
+  2) Wait for VBL
+
+  3) The beam is now moving back to top-left corner
+     Swap screens
+     Set background color (#0) to red
+
+  4) The beam is now drawing buffer #1 with red background
+     Logic + draw on buffer #2
+
+  5) Set background color (#0) to black
+     If the beam is still drawing buffer #1 we will see part black background
+     If the beam already drew a full frame the background will be all red
+     => we missed a VBL
+
+     note: % of the background red = % of one frame's cycle used for logic + draw
+
+  6) goto 2)
