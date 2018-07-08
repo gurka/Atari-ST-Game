@@ -1,2 +1,4 @@
 hdd/*
 !hdd/demo.s
+!hdd/*.py
+!hdd/*.BIN

@@ -72,8 +72,20 @@ demo:
 	jsr	clear_screen
 
 	; Set palette
-	clr.w	$ffff8240
-	move.w	#$0070,$ffff825e
+	clr.w	$ffff8240		; 0 = black
+	move.w	#$0777,$ffff8242	; 1 = white
+	move.w	#$0070,$ffff825e	; 15 = green
+
+	; Setup stars
+	lea	random_200,a0
+	lea	random_320,a1
+	lea	stars,a2
+	move.w	#31,d1
+.demo_star_init:
+	clr.b	(a2)+
+	move.b	(a0)+,(a2)+
+	move.w	(a1)+,(a2)+
+	dbra	d1,.demo_star_init	
 
 	; Counter (0..199)
 	clr.l	d7
@@ -100,22 +112,37 @@ demo:
 	; Clear screen
 	jsr	clear_screen
 
-	; Go to correct line in screen buffer
-	; a6 = screen_next + (y * 160)
-	move.l	d7,d6
-	move.l	#160,d5
-	mulu	d6,d5
-	move.l	screen_next,a6
-	add.w	d5,a6
+	; Draw stars
+	lea	stars,a0
+	move.w	#31,d0
+.demo_draw_stars:
+	move.w	(a0)+,d1	; y position
+	move.w	(a0)+,d2	; x position
+	move.l	screen_next,a1
 
-	; Draw line (320 pixels to a6)
-	; 320 pixels = 160 bytes = 80 w = 40 l
-	; Color = 15
-	move.b	#39,d6
-.demo_draw_line:
-	move.l	#-1,(a6)
-	adda	#4,a6
-	dbra	d6,.demo_draw_line
+	; Find correct line
+	move.w	#160,d3
+	mulu	d3,d1
+	add.w	d1,a1
+
+	; Find correct group
+	move.w	d2,d3
+	lsr	#1,d3
+	and.b	#$f0,d3
+	add.w	d3,a1
+
+	; Fetch mask
+	move.w	d2,d3
+	and.w	#$f,d3
+	lsl	#1,d3
+	lea	pixel_mask,a2
+	add.w	d3,a2
+	move.w	(a2),d3
+
+	; Write mask
+	or.w	d3,(a1)
+
+	dbra	d0,.demo_draw_stars
 
 	; Increase counter,reset if 200
 	addq.b	#1,d7
@@ -180,8 +207,36 @@ old_screen	dc.l	0
 screen_curr	dc.l	0
 screen_next	dc.l	0
 
+	; 512 bytes of random bytes 0..199
+random_200	incbin R200.BIN
+random_200_end	dc.b	0
+
+	; 1024 bytes of random words 0..319
+random_320	incbin R320.BIN
+random_320_end	dc.b	0
+
+pixel_mask	dc.w	%1000000000000000
+		dc.w	%0100000000000000
+		dc.w	%0010000000000000
+		dc.w	%0001000000000000
+		dc.w	%0000100000000000
+		dc.w	%0000010000000000
+		dc.w	%0000001000000000
+		dc.w	%0000000100000000
+		dc.w	%0000000010000000
+		dc.w	%0000000001000000
+		dc.w	%0000000000100000
+		dc.w	%0000000000010000
+		dc.w	%0000000000001000
+		dc.w	%0000000000000100
+		dc.w	%0000000000000010
+		dc.w	%0000000000000001
+
 	section bss
 
 old_palette	ds.l	8
 		ds.b	255
 screen_buffer	ds.b	64000
+
+	; 32 stars: 2b y pos, 2b x pos
+stars		ds.w	32*2
