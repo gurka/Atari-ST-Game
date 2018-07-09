@@ -190,6 +190,7 @@ demo:
 	bne	.demo_no_random_reset
 	clr.w	random_200_i
 .demo_no_random_reset:
+	clr.w	d1
 	move.b	(a1),d1
 	
 	; Set new x and y
