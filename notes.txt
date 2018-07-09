@@ -1,3 +1,5 @@
+===========================================================
+
 The most common calling convention for the Motorola 68000 series is:
   - d0, d1, a0 and a1 are scratch registers
   - All other registers are callee-saved
@@ -11,16 +13,9 @@ a7 is stack pointer
 
 ===========================================================
 
-move.b = byte = char
-move.w = word = short
-move.l = long = int
-
-===========================================================
-
-low res screen:
-  - 320x200x4 (4bpp / 16 colors)
-  - 64000 pixels
-  - 32000 bytes screen memory (4bpp)
+move.b = byte = 1 byte
+move.w = word = 2 bytes
+move.l = long = 4 bytes
 
 ===========================================================
 
@@ -45,3 +40,57 @@ Double buffering + time test:
      note: % of the background red = % of one frame's cycle used for logic + draw
 
   6) goto 2)
+
+===========================================================
+
+Graphics memory / Bitplanes
+
+low res screen:
+  - 320x200x4 (4bpp / 16 colors)
+  - 64000 pixels
+  - 32000 bytes screen memory (4bpp)
+
+One line is 320 pixels = 160 bytes
+
+4 bitplanes
+
+Pixels are stored in groups of 16 pixels in 4 words (8 bytes)
+Each word in a group represents one bitplane of the 16 pixels
+
+1 bitplane  =  2 colors
+2 bitplanes =  4 colors
+3 bitplanes =  8 colors
+4 bitplanes = 16 colors
+
+Example:
+
+Pixel #     : 0 1 2 3 4 5 6 7 8 9 a b c d e f
+
+Word 1 bits : 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1
+Word 2 bits : 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1
+Word 3 bits : 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1
+Word 4 bits : 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1
+              = = = = = = = = = = = = = = = =
+Pixel color : 0 1 2 3 4 5 6 7 8 9 a b c d e f
+
+Word 1 hex: 0x00FF
+Word 2 hex: 0x0F0F
+Word 3 hex: 0x3333
+Word 4 hex: 0x5555
+
+Given x and y position we can find the group with:
+
+screen_buffer + (y * 160) + ((x >> 1) & 0xf8)
+
+  160 bytes per line
+
+  group number = x >> 4
+  each group is 8 bytes
+    ((x >> 4) * 8)
+    =
+    ((x >> 4) << 3)
+    =
+    ((x >> 1) & 0xf8
+
+===========================================================
+

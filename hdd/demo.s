@@ -74,7 +74,20 @@ demo:
 	; Set palette
 	clr.w	$ffff8240		; 0 = black
 	move.w	#$0777,$ffff8242	; 1 = white
-	move.w	#$0070,$ffff825e	; 15 = green
+	move.w	#$0700,$ffff8244	; 2-5 = red
+	move.w	#$0711,$ffff8246
+	move.w	#$0722,$ffff8248
+	move.w	#$0733,$ffff824a
+	move.w	#$0070,$ffff824c	; 6-9 = green
+	move.w	#$0171,$ffff824e
+	move.w	#$0272,$ffff8250
+	move.w	#$0373,$ffff8252
+	move.w	#$0007,$ffff8254	; 10-13 = blue
+	move.w	#$0117,$ffff8256
+	move.w	#$0227,$ffff8258
+	move.w	#$0337,$ffff825a
+	move.w	#$0222,$ffff825c	; 14-16 = gray
+	move.w	#$0444,$ffff825e
 
 	; Setup stars
 	lea	random_200,a0
@@ -87,27 +100,41 @@ demo:
 	move.w	(a1)+,(a2)+
 	dbra	d1,.demo_star_init	
 
-	; Counter (0..199)
+	; Adjust random indices
+	move.w	#32,random_200_i
+	move.w	#32,random_320_i
+
+	; Counter
 	clr.l	d7
 
 	; Main loop
+	; Reserved registers:
+	; d7 = counter
 .demo_loop:
-	; Swap screens
-	move.l	screen_next,d0
-	move.l	screen_curr,screen_next
-	move.l	d0,screen_curr
-	lsr.l	#8,d0
-	move.b	d0,$ffff8203
-	lsr.w	#8,d0
-	move.b	d0,$ffff8201
-
 	; Wait for VBL
 	move.w	#37,-(sp)
 	trap	#14
 	addq.l	#2,sp
 
+	; Increase counter
+	addq.b	#1,d7
+
+	; Only render each 16th frame
+	move.b	d7,d6
+	and.b	#15,d6
+	;bne	.demo_loop
+	
+	; Swap screens
+	move.l	screen_curr,d0
+	move.l	screen_next,screen_curr
+	move.l	d0,screen_next
+	lsr.l	#8,d0
+	move.b	d0,$ffff8203
+	lsr.w	#8,d0
+	move.b	d0,$ffff8201
+
 	; Time test
-	move.w	#$707,$ffff8240
+	;move.w	#$707,$ffff8240
 	
 	; Clear screen
 	jsr	clear_screen
@@ -116,24 +143,31 @@ demo:
 	lea	stars,a0
 	move.w	#31,d0
 .demo_draw_stars:
-	move.w	(a0)+,d1	; y position
-	move.w	(a0)+,d2	; x position
+	move.w	0(a0),d1	; y position
+	move.w	2(a0),d2	; x position
 	move.l	screen_next,a1
 
 	; Find correct line
-	move.w	#160,d3
+	; a1 = screen_next + (y * 160)
+	move.w	#160,d3		; 160 = bytes per line
 	mulu	d3,d1
 	add.w	d1,a1
 
-	; Find correct group
+	; Find correct group / world
+	; a1 = (x >> 4) * 8
+	;    = (x >> 4) << 3
+	;    = (x >> 1) & 0xf8
 	move.w	d2,d3
 	lsr	#1,d3
-	and.b	#$f0,d3
+	and.b	#$f8,d3
 	add.w	d3,a1
 
 	; Fetch mask
+	; pixel_mask[0] = mask for first pixel in group
+	; ... and so on
+	; d3 = group_index = x % 16
 	move.w	d2,d3
-	and.w	#$f,d3
+	and.w	#15,d3
 	lsl	#1,d3
 	lea	pixel_mask,a2
 	add.w	d3,a2
@@ -142,17 +176,34 @@ demo:
 	; Write mask
 	or.w	d3,(a1)
 
+	; Move star
+	add.w	#-1,d2
+	move.w	d2,2(a0)
+	tst.w	d2
+	bpl	.demo_star_alive
+	
+	; Star is outside the screen, pick a new y position
+	lea	random_200,a1
+	add.w	random_200_i,a1
+	add.w	#1,random_200_i
+	cmp.w	#512,random_200_i
+	bne	.demo_no_random_reset
+	clr.w	random_200_i
+.demo_no_random_reset:
+	move.b	(a1),d1
+	
+	; Set new x and y
+	move.w	d1,0(a0)
+	move.w	#319,2(a0)
+
+.demo_star_alive:
+	; Next star
+	add.w	#4,a0
+
 	dbra	d0,.demo_draw_stars
 
-	; Increase counter,reset if 200
-	addq.b	#1,d7
-	cmp.b	#200,d7
-	bne	.demo_skip_counter
-	clr.b	d7
-.demo_skip_counter:
-
 	; Time test
-	move.w	#$0,$ffff8240
+	;move.w	#$0,$ffff8240
 
 	; Loop if spacebar not pressed
 	cmp.b	#$39,$fffc02
@@ -209,11 +260,11 @@ screen_next	dc.l	0
 
 	; 512 bytes of random bytes 0..199
 random_200	incbin R200.BIN
-random_200_end	dc.b	0
+random_200_i	dc.w	0
 
 	; 1024 bytes of random words 0..319
 random_320	incbin R320.BIN
-random_320_end	dc.b	0
+random_320_i	dc.w	0
 
 pixel_mask	dc.w	%1000000000000000
 		dc.w	%0100000000000000
