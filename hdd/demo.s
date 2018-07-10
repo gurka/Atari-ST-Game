@@ -187,10 +187,7 @@ demo:
 	lea	random_200,a1
 	add.w	random_200_i,a1
 	add.w	#1,random_200_i
-	cmp.w	#512,random_200_i
-	bne	.demo_no_random_reset
-	clr.w	random_200_i
-.demo_no_random_reset:
+	and.w	#511,random_200_i	; cap index to 512
 	clr.w	d1
 	move.b	(a1),d1
 	
