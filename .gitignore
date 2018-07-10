@@ -2,3 +2,5 @@ hdd/*
 !hdd/GAME.S
 !hdd/*.py
 !hdd/*.BIN
+!hdd/*.sh
+!hdd/*.PI1

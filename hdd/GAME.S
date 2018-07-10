@@ -94,11 +94,11 @@ demo:
 	lea	random_320,a1
 	lea	stars,a2
 	move.w	#31,d1
-.demo_star_init:
+.star_init:
 	clr.b	(a2)+
 	move.b	(a0)+,(a2)+
 	move.w	(a1)+,(a2)+
-	dbra	d1,.demo_star_init	
+	dbra	d1,.star_init	
 
 	; Adjust random indices
 	move.w	#32,random_200_i
@@ -110,7 +110,7 @@ demo:
 	; Main loop
 	; Reserved registers:
 	; d7 = counter
-.demo_loop:
+.loop:
 	; Wait for VBL
 	move.w	#37,-(sp)
 	trap	#14
@@ -142,21 +142,16 @@ demo:
 	; Draw stars
 	lea	stars,a0
 	move.w	#31,d0
-.demo_draw_stars:
+.draw_stars:
 	move.w	0(a0),d1	; y position
 	move.w	2(a0),d2	; x position
 	move.l	screen_next,a1
 
 	; Find correct line
-	; a1 = screen_next + (y * 160)
-	move.w	#160,d3		; 160 = bytes per line
-	mulu	d3,d1
+	mulu	#160,d1		; 160 bytes per line
 	add.w	d1,a1
 
-	; Find correct group / world
-	; a1 = (x >> 4) * 8
-	;    = (x >> 4) << 3
-	;    = (x >> 1) & 0xf8
+	; Find correct group
 	move.w	d2,d3
 	lsr	#1,d3
 	and.b	#$f8,d3
@@ -181,7 +176,7 @@ demo:
 	add.w	#-1,d2
 	move.w	d2,2(a0)
 	tst.w	d2
-	bpl	.demo_star_alive
+	bpl	.star_alive
 	
 	; Star is outside the screen, pick a new y position
 	lea	random_200,a1
@@ -195,18 +190,95 @@ demo:
 	move.w	d1,0(a0)
 	move.w	#319,2(a0)
 
-.demo_star_alive:
+.star_alive:
 	; Next star
 	add.w	#4,a0
 
-	dbra	d0,.demo_draw_stars
+	dbra	d0,.draw_stars
+
+	; Draw the word "AWFUL" starting at (32, 84)
+	move.b	#'A',d0
+	move.w	#32,d1
+	move.w	#84,d2
+	jsr	draw_char
+
+	move.b	#'W',d0
+	move.w	#64,d1
+	move.w	#84,d2
+	jsr	draw_char
+
+	move.b	#'F',d0
+	move.w	#96,d1
+	move.w	#84,d2
+	jsr	draw_char
+
+	move.b	#'U',d0
+	move.w	#128,d1
+	move.w	#84,d2
+	jsr	draw_char
+
+	move.b	#'L',d0
+	move.w	#160,d1
+	move.w	#84,d2
+	jsr	draw_char
 
 	; Time test
 	;move.w	#$0,$ffff8240
 
 	; Loop if spacebar not pressed
 	cmp.b	#$39,$fffc02
-	bne	.demo_loop
+	bne	.loop
+
+	rts
+
+	; Draw ASCII character in d0 to screen at d1=x, d2=y
+	; NOTE: x must be a multiple of 16 (for now)
+	; Basically just a sprite blit with a bit of special handling for locating
+	; the correct character in the font image buffer
+draw_char:
+	; Make a0 point to start of the given character in the font image buffer
+	and.l	#$ff,d0		; Make sure that there are no junk in the higher bytes of d0
+	add.b	#-$20,d0	; Align ASCII with font number
+	divu	#10,d0		; 10 letters per row
+
+	move.w	d0,d3		; d3 contains font y value
+	swap	d0
+	move.w	d0,d4		; d4 contains font x value
+
+	lsl	#4,d4		; x * 16 (16 bytes per letter)
+	lsl	#5,d3		; y * 32 (32 lines per row)
+	mulu	#160,d3		; 160 bytes per row
+
+	lea	font,a0		; font image buffer start in a0
+	add.w	#32,a0
+	add.w	d3,a0		; adjust with font y value
+	add.w	d4,a0		; adjust with font x value
+
+	; Now make a1 point to the correct location in the screen buffer
+	and.w	#$f0,d1		; Make sure that x is a multiple of 16
+	
+	move.l	screen_next,a1	; a1 points to start of screen buffer
+
+	; Find correct line
+	mulu.w	#160,d2		; 160 bytes per line
+	add.w	d2,a1
+
+	; Find correct group
+	lsr.w	#1,d1
+	and.b	#$f8,d1
+	add.w	d1,a1
+
+	; Now we just want to copy 32 * 32 pixels
+	; e.g. copy 16 bytes then skip (160 - 16) 144 bytes, 32 times
+	move.w	#31,d0
+.loop:
+	move.l	(a0)+,(a1)+
+	move.l	(a0)+,(a1)+
+	move.l	(a0)+,(a1)+
+	move.l	(a0)+,(a1)+
+	add.l	#144,a0
+	add.l	#144,a1
+	dbf	d0,.loop
 
 	rts
 
@@ -234,7 +306,7 @@ clear_screen:
 
 	; 200 lines (full screen)
 	move.w	#199,d7
-.clear_screen_loop:
+.loop:
 	; Clear 4 * 10 * 4 bytes = 160 bytes = 320 pixels = 1 line
 	movem.l	d0-d6/a1-a3,-(a0)
 	movem.l	d0-d6/a1-a3,-(a0)
@@ -243,7 +315,7 @@ clear_screen:
 
 	; Jump to end of next line (320 bytes = 640 pixels = 2 lines)
 	lea	320(a0),a0
-	dbra	d7,.clear_screen_loop
+	dbra	d7,.loop
 
 	; Restore registers
 	movem.l	(sp)+,d2-d7/a2-a3
@@ -281,6 +353,8 @@ pixel_mask	dc.w	%1000000000000000
 		dc.w	%0000000000000100
 		dc.w	%0000000000000010
 		dc.w	%0000000000000001
+
+font		incbin FONT.PI1
 
 	section bss
 
