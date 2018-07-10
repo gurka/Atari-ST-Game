@@ -1,1 +1,2 @@
 *.s text eol=crlf
+*.S text eol=crlf
