@@ -119,9 +119,9 @@ demo:
 	; Increase counter
 	addq.b	#1,d7
 
-	; Only render each 16th frame
-	move.b	d7,d6
-	and.b	#15,d6
+	; Only render each 16th VBL
+	move.b	d7,d0
+	and.b	#15,d0
 	;bne	.demo_loop
 	
 	; Swap screens
@@ -163,9 +163,10 @@ demo:
 	add.w	d3,a1
 
 	; Fetch mask
-	; pixel_mask[0] = mask for first pixel in group
-	; ... and so on
-	; d3 = group_index = x % 16
+	; mask index = group index = x % 16
+	; offset in pixel_mask = (x % 16) << 1
+	;                      = (x & 15) << 1
+	; (each mask is 2 bytes)
 	move.w	d2,d3
 	and.w	#15,d3
 	lsl	#1,d3
