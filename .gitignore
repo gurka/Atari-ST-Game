@@ -1,5 +1,4 @@
 hdd/*
-!hdd/demo.s
 !hdd/GAME.S
 !hdd/*.py
 !hdd/*.BIN
