@@ -72,22 +72,22 @@ demo:
 	jsr	clear_screen
 
 	; Set palette
-	clr.w	$ffff8240		; 0 = black
-	move.w	#$0777,$ffff8242	; 1 = white
-	move.w	#$0700,$ffff8244	; 2-5 = red
-	move.w	#$0711,$ffff8246
-	move.w	#$0722,$ffff8248
-	move.w	#$0733,$ffff824a
-	move.w	#$0070,$ffff824c	; 6-9 = green
-	move.w	#$0171,$ffff824e
-	move.w	#$0272,$ffff8250
-	move.w	#$0373,$ffff8252
-	move.w	#$0007,$ffff8254	; 10-13 = blue
-	move.w	#$0117,$ffff8256
-	move.w	#$0227,$ffff8258
-	move.w	#$0337,$ffff825a
-	move.w	#$0222,$ffff825c	; 14-16 = gray
-	move.w	#$0444,$ffff825e
+	move.w	#$0000,$ffff8240
+	move.w	#$0003,$ffff8242
+	move.w	#$0004,$ffff8244
+	move.w	#$0005,$ffff8246
+	move.w	#$0017,$ffff8248
+	move.w	#$0067,$ffff824a
+	move.w	#$0027,$ffff824c
+	move.w	#$0047,$ffff824e
+	move.w	#$0777,$ffff8250
+	move.w	#$0000,$ffff8252
+	move.w	#$0000,$ffff8254
+	move.w	#$0000,$ffff8256
+	move.w	#$0000,$ffff8258
+	move.w	#$0000,$ffff825a
+	move.w	#$0000,$ffff825c
+	move.w	#$0777,$ffff825e
 
 	; Setup stars
 	lea	random_200,a0
@@ -156,6 +156,10 @@ demo:
 	lsr	#1,d3
 	and.b	#$f8,d3
 	add.w	d3,a1
+
+	; Finally go to bitplane 4 (as we'll use color #14)
+	; FIXME: this isn't correct
+	add.w	#6,a1
 
 	; Fetch mask
 	; mask index = group index = x % 16
@@ -250,7 +254,7 @@ draw_char:
 	mulu	#160,d3		; 160 bytes per row
 
 	lea	font,a0		; font image buffer start in a0
-	add.w	#32,a0
+	add.w	#34,a0
 	add.w	d3,a0		; adjust with font y value
 	add.w	d4,a0		; adjust with font x value
 
@@ -269,7 +273,7 @@ draw_char:
 	add.w	d1,a1
 
 	; Now we just want to copy 32 * 32 pixels
-	; e.g. copy 16 bytes then skip (160 - 16) 144 bytes, 32 times
+	; e.g. copy 16 bytes then skip (160 - 16) 144 bytes and repeat 32 times
 	move.w	#31,d0
 .loop:
 	move.l	(a0)+,(a1)+
