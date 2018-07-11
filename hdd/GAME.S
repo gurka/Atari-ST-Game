@@ -72,22 +72,22 @@ demo:
 	jsr	clear_screen
 
 	; Set palette
-	move.w	#$0000,$ffff8240
-	move.w	#$0003,$ffff8242
-	move.w	#$0004,$ffff8244
-	move.w	#$0005,$ffff8246
-	move.w	#$0017,$ffff8248
-	move.w	#$0067,$ffff824a
-	move.w	#$0027,$ffff824c
-	move.w	#$0047,$ffff824e
-	move.w	#$0777,$ffff8250
-	move.w	#$0000,$ffff8252
-	move.w	#$0000,$ffff8254
-	move.w	#$0000,$ffff8256
-	move.w	#$0000,$ffff8258
-	move.w	#$0000,$ffff825a
-	move.w	#$0000,$ffff825c
-	move.w	#$0777,$ffff825e
+	move.w	#$0000,$ffff8240	; 0 (background color)
+	move.w	#$0003,$ffff8242	; 1 (1 to 7 and 0 is font color)
+	move.w	#$0004,$ffff8244	; 2
+	move.w	#$0005,$ffff8246	; 3
+	move.w	#$0017,$ffff8248	; 4
+	move.w	#$0067,$ffff824a	; 5
+	move.w	#$0027,$ffff824c	; 6
+	move.w	#$0047,$ffff824e	; 7
+	move.w	#$0777,$ffff8250	; 8 (star color)
+	move.w	#$0000,$ffff8252	; 9
+	move.w	#$0000,$ffff8254	; a
+	move.w	#$0000,$ffff8256	; b
+	move.w	#$0000,$ffff8258	; c
+	move.w	#$0000,$ffff825a	; d
+	move.w	#$0000,$ffff825c	; e
+	move.w	#$0000,$ffff825e	; f
 
 	; Setup stars
 	lea	random_200,a0
@@ -119,10 +119,12 @@ demo:
 	; Increase counter
 	addq.b	#1,d7
 
+	IFD	DEBUG_SLOW
 	; Only render each 16th VBL
 	move.b	d7,d0
 	and.b	#15,d0
-	;bne	.demo_loop
+	bne	.demo_loop
+	ENDC
 	
 	; Swap screens
 	move.l	screen_curr,d0
@@ -133,8 +135,10 @@ demo:
 	lsr.w	#8,d0
 	move.b	d0,$ffff8201
 
+	IFD	DEBUG_TIME
 	; Time test
-	;move.w	#$707,$ffff8240
+	move.w	#$707,$ffff8240
+	ENDC
 	
 	; Clear screen
 	jsr	clear_screen
@@ -157,10 +161,6 @@ demo:
 	and.b	#$f8,d3
 	add.w	d3,a1
 
-	; Finally go to bitplane 4 (as we'll use color #14)
-	; FIXME: this isn't correct
-	add.w	#6,a1
-
 	; Fetch mask
 	; mask index = group index = x % 16
 	; offset in pixel_mask = (x % 16) << 1
@@ -173,7 +173,9 @@ demo:
 	add.w	d3,a2
 	move.w	(a2),d3
 
-	; Write mask
+	; Write mask to bitplane 4, which will make the
+	; final color %1000 = 8
+	add.w	#6,a1
 	or.w	d3,(a1)
 
 	; Move star
@@ -226,8 +228,10 @@ demo:
 	move.w	#84,d2
 	jsr	draw_char
 
+	IFD	DEBUG_TIME
 	; Time test
-	;move.w	#$0,$ffff8240
+	move.w	#$0,$ffff8240
+	ENDC
 
 	; Loop if spacebar not pressed
 	cmp.b	#$39,$fffc02
