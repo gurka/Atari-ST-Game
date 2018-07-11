@@ -286,31 +286,50 @@ draw_text:
 .end:
 	rts
 
+	; TODO:
+	; Convert draw_char to a copy_image with:
+	; a0 = source buffer
+	; a1 = dest buffer
+	; d0 = source x
+	; d1 = source y
+	; d2 = dest x
+	; d3 = dest y
+	; d4 = width
+	; d5 = height
+	; Put font handling in draw_text
+
 	; Draw ASCII character in d0 to screen at d1=x, d2=y
 	; NOTE: x must be a multiple of 16 (for now)
 	; Basically just a sprite blit with a bit of special handling for locating
 	; the correct character in the font image buffer
 draw_char:
 	; Save registers
-	movem.l	d0-d4/a0-a1,-(sp)
+	movem.l	d0-d3/a0-a1,-(sp)
 
 	; Make a0 point to start of the given character in the font image buffer
 	and.l	#$ff,d0		; Make sure that there are no junk in the higher bytes of d0
 	add.b	#-$20,d0	; Align ASCII with font number
-	divu	#10,d0		; 10 letters per row
 
-	move.w	d0,d3		; d3 contains font y value
-	swap	d0
-	move.w	d0,d4		; d4 contains font x value
+	; Is the below even faster than divu?
+	clr.w	d3
+.div_loop:
+	addq.b	#1,d3
+	add.b	#-10,d0
+	bpl	.div_loop
+	add.b	#10,d0
+	add.b	#-1,d3
 
-	lsl	#4,d4		; x * 16 (16 bytes per letter)
+	; font x is in d0
+	; font y is in d3
+
+	lsl	#4,d0		; x * 16 (16 bytes per letter)
 	lsl	#5,d3		; y * 32 (32 lines per row)
 	mulu	#160,d3		; 160 bytes per row
 
-	lea	font,a0		; font image buffer start in a0
-	add.w	#34,a0
+	lea	font32,a0
+	add.w	#34,a0		; font image buffer start in a0
 	add.w	d3,a0		; adjust with font y value
-	add.w	d4,a0		; adjust with font x value
+	add.w	d0,a0		; adjust with font x value
 
 	; Now make a1 point to the correct location in the screen buffer
 	and.w	#$fff0,d1	; Make sure that x is a multiple of 16
@@ -339,7 +358,7 @@ draw_char:
 	dbf	d0,.loop
 
 	; Restore registers
-	movem.l	(sp)+,d0-d4/a0-a1
+	movem.l	(sp)+,d0-d3/a0-a1
 	rts
 
 clear_screen:
@@ -414,7 +433,8 @@ pixel_mask	dc.w	%1000000000000000
 		dc.w	%0000000000000010
 		dc.w	%0000000000000001
 
-font		incbin FONT.PI1
+font32		incbin FONT32.PI1
+font16		incbin FONT16.PI1
 
 gamename_str	dc.b	"GAMENAME", 0
 awful_str	dc.b	"AWFUL", 0
