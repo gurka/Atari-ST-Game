@@ -32,8 +32,15 @@
 	trap	#14
 	add.l	#12,sp
 
-	; Run demo
-	jsr	demo
+	; Setup screen buffers
+	move.l	#screen_buffer,d0
+	clr.b	d0
+	move.l	d0,screen_curr
+	add.l	#32000,d0
+	move.l	d0,screen_next
+
+	; Run intro
+	jsr	intro
 
 	; Restore old resolution
 	move.w	old_resolution,d0
@@ -60,14 +67,10 @@
 	clr.l	-(a7)
 	trap	#1
 
-demo:
-	; Setup screen buffers
-	move.l	#screen_buffer,d0
-	clr.b	d0
-	move.l	d0,screen_curr
-	add.l	#32000,d0
-	move.l	d0,screen_next
-
+	; Run intro
+	; Reserved registers:
+	; d7 = counter
+intro:
 	; Clear the screen
 	jsr	clear_screen
 
@@ -108,8 +111,6 @@ demo:
 	clr.l	d7
 
 	; Main loop
-	; Reserved registers:
-	; d7 = counter
 .loop:
 	; Wait for VBL
 	move.w	#37,-(sp)
@@ -117,7 +118,7 @@ demo:
 	addq.l	#2,sp
 
 	; Increase counter
-	addq.b	#1,d7
+	addq.w	#1,d7
 
 	IFD	DEBUG_SLOW
 	; Only render each 16th VBL
@@ -158,7 +159,7 @@ demo:
 	; Find correct group
 	move.w	d2,d3
 	lsr	#1,d3
-	and.b	#$f8,d3
+	and.w	#$fff8,d3
 	add.w	d3,a1
 
 	; Fetch mask
@@ -202,32 +203,64 @@ demo:
 
 	dbra	d0,.draw_stars
 
-	; Draw the word "AWFUL" starting at (32, 84)
-	move.b	#'A',d0
+	; Draw text
+	;
+	; From 0s to 2s we draw nothing
+	; From 2s       we draw GAMENAME
+	; From 4s to 5s we draw AWFUL
+	; From 5s to 6s we draw SUMMER
+	; From 6s to 7s we draw JAM 2018
+
+	cmp.w	#100,d7		; Time to draw GAMENAME?
+	blt	.text_end	; Not yet
+	
+	; Draw "GAMENAME" starting at (32, 32)
+	move.b	#'G',d0
 	move.w	#32,d1
-	move.w	#84,d2
+	move.w	#32,d2
 	jsr	draw_char
 
-	move.b	#'W',d0
+	move.b	#'A',d0
 	move.w	#64,d1
-	move.w	#84,d2
+	move.w	#32,d2
 	jsr	draw_char
 
-	move.b	#'F',d0
+	move.b	#'M',d0
 	move.w	#96,d1
-	move.w	#84,d2
+	move.w	#32,d2
 	jsr	draw_char
 
-	move.b	#'U',d0
+	move.b	#'E',d0
 	move.w	#128,d1
-	move.w	#84,d2
+	move.w	#32,d2
 	jsr	draw_char
 
-	move.b	#'L',d0
+	move.b	#'N',d0
 	move.w	#160,d1
-	move.w	#84,d2
+	move.w	#32,d2
 	jsr	draw_char
 
+	move.b	#'A',d0
+	move.w	#192,d1
+	move.w	#32,d2
+	jsr	draw_char
+
+	move.b	#'M',d0
+	move.w	#224,d1
+	move.w	#32,d2
+	jsr	draw_char
+
+	move.b	#'E',d0
+	move.w	#256,d1
+	move.w	#32,d2
+	jsr	draw_char
+
+	cmp.w	#200,d7		; Time to draw AWFUL, SUMMER or JAM 2018?
+	blt	.text_end	; Not yet
+
+	; TODO: draw AWFUL, SUMMER or JAM 2018 based on counter
+
+.text_end:
 	IFD	DEBUG_TIME
 	; Time test
 	move.w	#$0,$ffff8240
@@ -263,7 +296,7 @@ draw_char:
 	add.w	d4,a0		; adjust with font x value
 
 	; Now make a1 point to the correct location in the screen buffer
-	and.w	#$f0,d1		; Make sure that x is a multiple of 16
+	and.w	#$fff0,d1	; Make sure that x is a multiple of 16
 	
 	move.l	screen_next,a1	; a1 points to start of screen buffer
 
@@ -273,7 +306,7 @@ draw_char:
 
 	; Find correct group
 	lsr.w	#1,d1
-	and.b	#$f8,d1
+	and.w	#$fff8,d1
 	add.w	d1,a1
 
 	; Now we just want to copy 32 * 32 pixels
