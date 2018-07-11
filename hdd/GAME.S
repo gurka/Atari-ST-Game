@@ -207,58 +207,60 @@ intro:
 	;
 	; From 0s to 2s we draw nothing
 	; From 2s       we draw GAMENAME
-	; From 4s to 5s we draw AWFUL
-	; From 5s to 6s we draw SUMMER
-	; From 6s to 7s we draw JAM 2018
+	; From 4s to 5s we draw    AWFUL
+	; From 5s to 6s we draw   SUMMER
+	; From 6s to 7s we draw      JAM
+	; From 7s       we draw     2018
 
 	cmp.w	#100,d7		; Time to draw GAMENAME?
 	blt	.text_end	; Not yet
 	
-	; Draw "GAMENAME" starting at (32, 32)
-	move.b	#'G',d0
+	lea	gamename_str,a0
 	move.w	#32,d1
 	move.w	#32,d2
-	jsr	draw_char
+	jsr	draw_text
 
-	move.b	#'A',d0
-	move.w	#64,d1
-	move.w	#32,d2
-	jsr	draw_char
+	cmp.w	#350,d7		; Time to draw 2018?
+	bge	.text_2018
 
-	move.b	#'M',d0
-	move.w	#96,d1
-	move.w	#32,d2
-	jsr	draw_char
+	cmp.w	#300,d7		; Time to draw JAM?
+	bge	.text_jam
 
-	move.b	#'E',d0
-	move.w	#128,d1
-	move.w	#32,d2
-	jsr	draw_char
+	cmp.w	#250,d7		; Time to draw SUMMER?
+	bge	.text_summer
 
-	move.b	#'N',d0
+	cmp.w	#200,d7		; Time to draw AWFUL?
+	bge	.text_awful
+
+	bra.s	.text_end
+
+.text_2018:
+	lea	year_str,a0
 	move.w	#160,d1
-	move.w	#32,d2
-	jsr	draw_char
+	move.w	#128,d2
+	jsr	draw_text
+	bra.s	.text_end
 
-	move.b	#'A',d0
+.text_jam:
+	lea	jam_str,a0
 	move.w	#192,d1
-	move.w	#32,d2
-	jsr	draw_char
+	move.w	#128,d2
+	jsr	draw_text
+	bra.s	.text_end
 
-	move.b	#'M',d0
-	move.w	#224,d1
-	move.w	#32,d2
-	jsr	draw_char
+.text_summer:
+	lea	summer_str,a0
+	move.w	#96,d1
+	move.w	#128,d2
+	jsr	draw_text
+	bra.s	.text_end
 
-	move.b	#'E',d0
-	move.w	#256,d1
-	move.w	#32,d2
-	jsr	draw_char
-
-	cmp.w	#200,d7		; Time to draw AWFUL, SUMMER or JAM 2018?
-	blt	.text_end	; Not yet
-
-	; TODO: draw AWFUL, SUMMER or JAM 2018 based on counter
+.text_awful:
+	lea	awful_str,a0
+	move.w	#128,d1
+	move.w	#128,d2
+	jsr	draw_text
+	;bra.s	.text_end
 
 .text_end:
 	IFD	DEBUG_TIME
@@ -272,11 +274,26 @@ intro:
 
 	rts
 
+	; Draw ASCII text pointer to in a0 to screen at d1=x, d2=y
+	; NOTE: x must be a multiple of 16 (for now)
+	; NOTE: make sure that the text will fit (each character is 32x32 pixels)
+draw_text:
+	move.b	(a0)+,d0
+	beq	.end		; Stop at null terminator
+	jsr	draw_char
+	add.w	#32,d1
+	bra.s	draw_text
+.end:
+	rts
+
 	; Draw ASCII character in d0 to screen at d1=x, d2=y
 	; NOTE: x must be a multiple of 16 (for now)
 	; Basically just a sprite blit with a bit of special handling for locating
 	; the correct character in the font image buffer
 draw_char:
+	; Save registers
+	movem.l	d0-d4/a0-a1,-(sp)
+
 	; Make a0 point to start of the given character in the font image buffer
 	and.l	#$ff,d0		; Make sure that there are no junk in the higher bytes of d0
 	add.b	#-$20,d0	; Align ASCII with font number
@@ -321,6 +338,8 @@ draw_char:
 	add.l	#144,a1
 	dbf	d0,.loop
 
+	; Restore registers
+	movem.l	(sp)+,d0-d4/a0-a1
 	rts
 
 clear_screen:
@@ -396,6 +415,12 @@ pixel_mask	dc.w	%1000000000000000
 		dc.w	%0000000000000001
 
 font		incbin FONT.PI1
+
+gamename_str	dc.b	"GAMENAME", 0
+awful_str	dc.b	"AWFUL", 0
+summer_str	dc.b	"SUMMER", 0
+jam_str		dc.b	"JAM", 0
+year_str	dc.b	"2018", 0
 
 	section bss
 
