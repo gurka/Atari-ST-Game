@@ -206,60 +206,60 @@ intro:
 	; Draw text
 	;
 	; From 0s to 2s we draw nothing
-	; From 2s       we draw GAMENAME
-	; From 4s to 5s we draw    AWFUL
-	; From 5s to 6s we draw   SUMMER
-	; From 6s to 7s we draw      JAM
-	; From 7s       we draw     2018
+	; From 2s       we draw    GAMENAME
+	; From 4s to 5s we draw  AWFUL SUMMER
+	; From 5s to 6s we draw    JAM 2018
+	; From 6s to 7s we draw   BY NIKANOR
+	; From 7s       we draw PRESS TO START
 
 	cmp.w	#100,d7		; Time to draw GAMENAME?
 	blt	.text_end	; Not yet
 	
-	lea	gamename_str,a0
-	move.w	#32,d1
+	lea	gamename_str,a2
 	move.w	#32,d2
-	jsr	draw_text
+	move.w	#32,d3
+	jsr	draw_text32
 
-	cmp.w	#350,d7		; Time to draw 2018?
-	bge	.text_2018
+	cmp.w	#350,d7		; Time to draw PRESS TO START?
+	bge	.text_start
 
-	cmp.w	#300,d7		; Time to draw JAM?
+	cmp.w	#300,d7		; Time to draw BY NIKANOR?
+	bge	.text_by
+
+	cmp.w	#250,d7		; Time to draw JAM 2018?
 	bge	.text_jam
 
-	cmp.w	#250,d7		; Time to draw SUMMER?
-	bge	.text_summer
-
-	cmp.w	#200,d7		; Time to draw AWFUL?
+	cmp.w	#200,d7		; Time to draw AWFUL SUMMER?
 	bge	.text_awful
 
 	bra.s	.text_end
 
-.text_2018:
-	lea	year_str,a0
-	move.w	#160,d1
-	move.w	#128,d2
-	jsr	draw_text
+.text_awful:
+	lea	awful_str,a2
+	move.w	#64,d2
+	move.w	#128,d3
+	jsr	draw_text16
 	bra.s	.text_end
 
 .text_jam:
-	lea	jam_str,a0
-	move.w	#192,d1
-	move.w	#128,d2
-	jsr	draw_text
+	lea	jam_str,a2
+	move.w	#96,d2
+	move.w	#128,d3
+	jsr	draw_text16
 	bra.s	.text_end
 
-.text_summer:
-	lea	summer_str,a0
-	move.w	#96,d1
-	move.w	#128,d2
-	jsr	draw_text
+.text_by:
+	lea	by_str,a2
+	move.w	#80,d2
+	move.w	#128,d3
+	jsr	draw_text16
 	bra.s	.text_end
 
-.text_awful:
-	lea	awful_str,a0
-	move.w	#128,d1
-	move.w	#128,d2
-	jsr	draw_text
+.text_start:
+	lea	start_str,a2
+	move.w	#48,d2
+	move.w	#128,d3
+	jsr	draw_text16
 	;bra.s	.text_end
 
 .text_end:
@@ -274,91 +274,169 @@ intro:
 
 	rts
 
-	; Draw ASCII text pointer to in a0 to screen at d1=x, d2=y
+	; Draw ASCII text pointed to in a2 to screen_next at d2=x, d3=y
 	; NOTE: x must be a multiple of 16 (for now)
-	; NOTE: make sure that the text will fit (each character is 32x32 pixels)
-draw_text:
-	move.b	(a0)+,d0
+	; NOTE: make sure that the text will fit (each character is 16x16 pixels)
+draw_text16:
+	; Setup registers for copy_image
+	lea	font16,a0
+	add.l	#34,a0
+	move.l	screen_next,a1
+	move.l	#16,d4
+	move.l	#16,d5
+
+.char_loop:
+	move.b	(a2)+,d0	; Next character in d0
 	beq	.end		; Stop at null terminator
-	jsr	draw_char
-	add.w	#32,d1
-	bra.s	draw_text
-.end:
-	rts
 
-	; TODO:
-	; Convert draw_char to a copy_image with:
-	; a0 = source buffer
-	; a1 = dest buffer
-	; d0 = source x
-	; d1 = source y
-	; d2 = dest x
-	; d3 = dest y
-	; d4 = width
-	; d5 = height
-	; Put font handling in draw_text
-
-	; Draw ASCII character in d0 to screen at d1=x, d2=y
-	; NOTE: x must be a multiple of 16 (for now)
-	; Basically just a sprite blit with a bit of special handling for locating
-	; the correct character in the font image buffer
-draw_char:
-	; Save registers
-	movem.l	d0-d3/a0-a1,-(sp)
-
-	; Make a0 point to start of the given character in the font image buffer
-	and.l	#$ff,d0		; Make sure that there are no junk in the higher bytes of d0
+	; Figure out where in the font buffer this character starts
+	and.l	#$ff,d0		; Remove junk in higher d0
 	add.b	#-$20,d0	; Align ASCII with font number
 
 	; Is the below even faster than divu?
-	clr.w	d3
+	clr.w	d1
 .div_loop:
-	addq.b	#1,d3
+	addq.b	#1,d1
 	add.b	#-10,d0
-	bpl	.div_loop
+	bpl.s	.div_loop
 	add.b	#10,d0
-	add.b	#-1,d3
+	add.b	#-1,d1
 
+	lsl.w	#4,d0
+	lsl.w	#4,d1
 	; font x is in d0
-	; font y is in d3
+	; font y is in d1
 
-	lsl	#4,d0		; x * 16 (16 bytes per letter)
-	lsl	#5,d3		; y * 32 (32 lines per row)
-	mulu	#160,d3		; 160 bytes per row
+	jsr	copy_image
+	add.w	d4,d2		; dest x += width
+	bra.s	.char_loop
+.end:
+	rts
 
+	; Draw ASCII text pointed to in a2 to screen_next at d2=x, d3=y
+	; NOTE: x must be a multiple of 16 (for now)
+	; NOTE: make sure that the text will fit (each character is 32x32 pixels)
+draw_text32:
+	; Setup registers for copy_image
 	lea	font32,a0
-	add.w	#34,a0		; font image buffer start in a0
-	add.w	d3,a0		; adjust with font y value
-	add.w	d0,a0		; adjust with font x value
+	add.l	#34,a0
+	move.l	screen_next,a1
+	move.l	#32,d4
+	move.l	#32,d5
 
-	; Now make a1 point to the correct location in the screen buffer
-	and.w	#$fff0,d1	; Make sure that x is a multiple of 16
-	
-	move.l	screen_next,a1	; a1 points to start of screen buffer
+.char_loop:
+	move.b	(a2)+,d0	; Next character in d0
+	beq	.end		; Stop at null terminator
 
-	; Find correct line
-	mulu.w	#160,d2		; 160 bytes per line
-	add.w	d2,a1
+	; Figure out where in the font buffer this character starts
+	and.l	#$ff,d0		; Remove junk in higher d0
+	add.b	#-$20,d0	; Align ASCII with font number
 
-	; Find correct group
-	lsr.w	#1,d1
-	and.w	#$fff8,d1
-	add.w	d1,a1
+	; Is the below even faster than divu?
+	clr.w	d1
+.div_loop:
+	addq.b	#1,d1
+	add.b	#-10,d0
+	bpl.s	.div_loop
+	add.b	#10,d0
+	add.b	#-1,d1
 
-	; Now we just want to copy 32 * 32 pixels
-	; e.g. copy 16 bytes then skip (160 - 16) 144 bytes and repeat 32 times
-	move.w	#31,d0
+	lsl.w	#5,d0
+	lsl.w	#5,d1
+	; font x is in d0
+	; font y is in d1
+
+	jsr	copy_image
+	add.w	d4,d2		; dest x += width
+	bra.s	.char_loop
+.end:
+	rts
+
+	; Copies a chunk from the source buffer to the
+	; destination buffer
+	;
+	; a0 = source buffer (must be 320x200)
+	; a1 = dest buffer   (must be 320x200)
+	; d0 = source x      (must be multiple of 16)
+	; d1 = source y
+	; d2 = dest x        (must be multiple of 16)
+	; d3 = dest y
+	; d4 = width	     (must be multiple of 16)
+	; d5 = height
+copy_image:
+	; Save registers
+	movem.l	d0-d5/a0-a1,-(sp)
+
+	; Remove junk in high registers
+	and.l	#$ffff,d0
+	and.l	#$ffff,d1
+	and.l	#$ffff,d2
+	and.l	#$ffff,d3
+	and.l	#$ffff,d4
+	and.l	#$ffff,d5
+
+	; Make sure that source x, dest x and width are multiple of 16
+	and.b	#$f0,d0
+	and.b	#$f0,d2
+	and.b	#$f0,d4
+
+	; Adjust a0 with source y
+	mulu	#160,d1		; 160 bytes per line
+	add.l	d1,a0
+
+	; Adjust a0 with source x
+	lsr.w	#1,d0		; 4bpp
+	add.l	d0,a0
+
+	; Adjust a1 with dest y
+	mulu	#160,d3		; 160 bytes per line
+	add.l	d3,a1
+
+	; Adjust a0 with dest x
+	lsr.w	#1,d2		; 4bpp
+	add.l	d2,a1
+
+	; Prepare for copy
+	; We need:
+	; d0 = number of groups to copy each line minus one (1 group = 8 bytes)
+	; d1 = number of bytes to skip after each line (160 - (width / 2)), or
+	;                                              (160 - (num_groups * 8))
+	; d5 = number of lines to copy (height)
+
+	; Set d1 to number of bytes to skip after each line
+	move.w	#160,d1		; d1 = 160
+	lsr.w	#1,d4		; d4 = width / 2
+	sub.w	d4,d1		; d1 = 160 - (width / 2)
+
+	; Set d0 to number of groups to copy each line
+	lsr.w	#3,d4		; (width / 2) / 8 = width / 16
+	add.w	#-1,d4
+	move.l	d4,d0
+
+	; d5 - 1 due to dbra
+	add.w	#-1,d5
+
 .loop:
+	; d2 = number of groups to copy each line minus one
+	move.w	d0,d2
+
+.loop_group:
+	; Copy one group
 	move.l	(a0)+,(a1)+
 	move.l	(a0)+,(a1)+
-	move.l	(a0)+,(a1)+
-	move.l	(a0)+,(a1)+
-	add.l	#144,a0
-	add.l	#144,a1
-	dbf	d0,.loop
+
+	; Repeat until all groups have been copied
+	dbra	d2,.loop_group
+
+	; Go to next line in both buffers
+	add.l	d1,a0
+	add.l	d1,a1
+
+	; Repeat until all lines have been copied
+	dbra	d5,.loop
 
 	; Restore registers
-	movem.l	(sp)+,d0-d3/a0-a1
+	movem.l	(sp)+,d0-d5/a0-a1
 	rts
 
 clear_screen:
@@ -437,10 +515,10 @@ font32		incbin FONT32.PI1
 font16		incbin FONT16.PI1
 
 gamename_str	dc.b	"GAMENAME", 0
-awful_str	dc.b	"AWFUL", 0
-summer_str	dc.b	"SUMMER", 0
-jam_str		dc.b	"JAM", 0
-year_str	dc.b	"2018", 0
+awful_str	dc.b	"AWFUL SUMMER", 0
+jam_str		dc.b	"JAM 2018", 0
+by_str		dc.b	"BY NIKANOR", 0
+start_str	dc.b	"PRESS TO START", 0
 
 	section bss
 
