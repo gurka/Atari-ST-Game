@@ -76,13 +76,13 @@ intro:
 
 	; Set palette
 	move.w	#$0000,$ffff8240	; 0 (background color)
-	move.w	#$0003,$ffff8242	; 1 (1 to 7 and 0 is font color)
-	move.w	#$0004,$ffff8244	; 2
-	move.w	#$0005,$ffff8246	; 3
-	move.w	#$0017,$ffff8248	; 4
-	move.w	#$0067,$ffff824a	; 5
-	move.w	#$0027,$ffff824c	; 6
-	move.w	#$0047,$ffff824e	; 7
+	move.w	#$0000,$ffff8242	; 1 (1 to 7 and 0 is font color)
+	move.w	#$0000,$ffff8244	; 2
+	move.w	#$0000,$ffff8246	; 3
+	move.w	#$0000,$ffff8248	; 4
+	move.w	#$0000,$ffff824a	; 5
+	move.w	#$0000,$ffff824c	; 6
+	move.w	#$0000,$ffff824e	; 7
 	move.w	#$0777,$ffff8250	; 8 (star color)
 	move.w	#$0000,$ffff8252	; 9
 	move.w	#$0000,$ffff8254	; a
@@ -126,7 +126,7 @@ intro:
 	and.b	#15,d0
 	bne	.demo_loop
 	ENDC
-	
+
 	; Swap screens
 	move.l	screen_curr,d0
 	move.l	screen_next,screen_curr
@@ -140,7 +140,7 @@ intro:
 	; Time test
 	move.w	#$707,$ffff8240
 	ENDC
-	
+
 	; Clear screen
 	jsr	clear_screen
 
@@ -184,7 +184,7 @@ intro:
 	move.w	d2,2(a0)
 	tst.w	d2
 	bpl	.star_alive
-	
+
 	; Star is outside the screen, pick a new y position
 	lea	random_200,a1
 	add.w	random_200_i,a1
@@ -192,7 +192,7 @@ intro:
 	and.w	#511,random_200_i	; cap index to 512
 	clr.w	d1
 	move.b	(a1),d1
-	
+
 	; Set new x and y
 	move.w	d1,0(a0)
 	move.w	#319,2(a0)
@@ -205,13 +205,13 @@ intro:
 
 	; Draw text
 	;
-	; From 2s          we draw SPACE 2.0
+	; From 0.8s     we draw SPACE 2.0 with 1s fade in time
 	; From 4s to 6s we draw AWFUL SUMMER JAM 2018
 	; From 6s to 8s we draw BY NIKANOR
 	; From 8s       we draw PRESS FIRE TO START
-	cmp.w	#100,d7		; Time to draw SPACE 2.0?
+	cmp.w	#40,d7		; Time to draw SPACE 2.0?
 	blt	.text_end	; Not yet
-	
+
 	; Draw SPACE 2.0
 	lea	text_image,a0
 	add.l	#34,a0
@@ -224,6 +224,92 @@ intro:
 	move.w	#32,d5
 	jsr	copy_image
 
+	; Handle fade in
+	; at VBL  40 we set palette to: 001, 001, 001, 011, 011, 011, 011
+	; at VBL  50 we set palette to: 002, 002, 002, 012, 022, 022, 022
+	; at VBL  60 we set palette to: 003, 003, 003, 013, 033, 023, 033
+	; at VBL  70 we set palette to: 003, 004, 004, 014, 044, 024, 044
+	; at VBL  80 we set palette to: 003, 004, 005, 015, 055, 025, 045
+	; at VBL  90 we set palette to: 003, 004, 005, 016, 066, 026, 046
+	; at VBL 100 we set palette to: 003, 004, 005, 017, 067, 027, 047
+	cmp.w	#40,d7
+	beq	.fade_40
+	cmp.w	#50,d7
+	beq	.fade_50
+	cmp.w	#60,d7
+	beq	.fade_60
+	cmp.w	#70,d7
+	beq	.fade_70
+	cmp.w	#80,d7
+	beq	.fade_80
+	cmp.w	#90,d7
+	beq	.fade_90
+	cmp.w	#100,d7
+	beq	.fade_100
+	bra	.fade_done
+
+.fade_40:
+	add.w	#$0001,$ffff8242
+	add.w	#$0001,$ffff8244
+	add.w	#$0001,$ffff8246
+	add.w	#$0011,$ffff8248
+	add.w	#$0011,$ffff824a
+	add.w	#$0011,$ffff824c
+	add.w	#$0011,$ffff824e
+	bra	.fade_done
+
+.fade_50:
+	add.w	#$0001,$ffff8242
+	add.w	#$0001,$ffff8244
+	add.w	#$0001,$ffff8246
+	add.w	#$0001,$ffff8248
+	add.w	#$0011,$ffff824a
+	add.w	#$0011,$ffff824c
+	add.w	#$0011,$ffff824e
+	bra	.fade_done
+
+.fade_60:
+	add.w	#$0001,$ffff8242
+	add.w	#$0001,$ffff8244
+	add.w	#$0001,$ffff8246
+	add.w	#$0001,$ffff8248
+	add.w	#$0011,$ffff824a
+	add.w	#$0001,$ffff824c
+	add.w	#$0011,$ffff824e
+	bra	.fade_done
+
+.fade_70:
+	add.w	#$0001,$ffff8244
+	add.w	#$0001,$ffff8246
+	add.w	#$0001,$ffff8248
+	add.w	#$0011,$ffff824a
+	add.w	#$0001,$ffff824c
+	add.w	#$0011,$ffff824e
+	bra.s	.fade_done
+
+.fade_80:
+	add.w	#$0001,$ffff8246
+	add.w	#$0001,$ffff8248
+	add.w	#$0011,$ffff824a
+	add.w	#$0001,$ffff824c
+	add.w	#$0001,$ffff824e
+	bra.s	.fade_done
+
+.fade_90:
+	add.w	#$0001,$ffff8248
+	add.w	#$0011,$ffff824a
+	add.w	#$0001,$ffff824c
+	add.w	#$0001,$ffff824e
+	bra.s	.fade_done
+
+.fade_100:
+	add.w	#$0001,$ffff8248
+	add.w	#$0001,$ffff824a
+	add.w	#$0001,$ffff824c
+	add.w	#$0001,$ffff824e
+	;bra.s	.fade_done
+
+.fade_done:
 	cmp.w	#400,d7		; Time to draw PRESS FIRE TO START?
 	bge	.text_start
 
