@@ -205,61 +205,76 @@ intro:
 
 	; Draw text
 	;
-	; From 0s to 2s we draw nothing
-	; From 2s       we draw    GAMENAME
-	; From 4s to 5s we draw  AWFUL SUMMER
-	; From 5s to 6s we draw    JAM 2018
-	; From 6s to 7s we draw   BY NIKANOR
-	; From 7s       we draw PRESS TO START
-
-	cmp.w	#100,d7		; Time to draw GAMENAME?
+	; From 2s          we draw SPACE 2.0
+	; From 4s to 6s we draw AWFUL SUMMER JAM 2018
+	; From 6s to 8s we draw BY NIKANOR
+	; From 8s       we draw PRESS FIRE TO START
+	cmp.w	#100,d7		; Time to draw SPACE 2.0?
 	blt	.text_end	; Not yet
 	
-	lea	gamename_str,a2
-	move.w	#32,d2
+	; Draw SPACE 2.0
+	lea	text_image,a0
+	add.l	#34,a0
+	move.l	screen_next,a1
+	clr.w	d0		; Texts start at 0,0
+	clr.w	d1
+	move.w	#32,d2		; Draw at 32,32
 	move.w	#32,d3
-	jsr	draw_text32
+	move.w	#272,d4		; Size of text is 272,32
+	move.w	#32,d5
+	jsr	copy_image
 
-	cmp.w	#350,d7		; Time to draw PRESS TO START?
+	cmp.w	#400,d7		; Time to draw PRESS FIRE TO START?
 	bge	.text_start
 
 	cmp.w	#300,d7		; Time to draw BY NIKANOR?
 	bge	.text_by
 
-	cmp.w	#250,d7		; Time to draw JAM 2018?
-	bge	.text_jam
-
-	cmp.w	#200,d7		; Time to draw AWFUL SUMMER?
+	cmp.w	#200,d7		; Time to draw AWFUL SUMMER JAM 2018?
 	bge	.text_awful
 
-	bra.s	.text_end
+	bra	.text_end
 
 .text_awful:
-	lea	awful_str,a2
-	move.w	#64,d2
+	; Draw AWFUL SUMMER JAM 2018
+	lea	text_image,a0
+	add.l	#34,a0
+	move.l	screen_next,a1
+	clr.w	d0		; Texts start at 0,32
+	move.w	#32,d1
+	clr.w	d2		; Draw at 0,128
 	move.w	#128,d3
-	jsr	draw_text16
-	bra.s	.text_end
-
-.text_jam:
-	lea	jam_str,a2
-	move.w	#96,d2
-	move.w	#128,d3
-	jsr	draw_text16
+	move.w	#320,d4		; Size of text is 320,16
+	move.w	#16,d5
+	jsr	copy_image
 	bra.s	.text_end
 
 .text_by:
-	lea	by_str,a2
-	move.w	#80,d2
+	; Draw BY NIKANOR
+	lea	text_image,a0
+	add.l	#34,a0
+	move.l	screen_next,a1
+	clr.w	d0		; Texts start at 0,48
+	move.w	#48,d1
+	move.w	#160,d2		; Draw at 160,128
 	move.w	#128,d3
-	jsr	draw_text16
+	move.w	#160,d4		; Size of text is 160,16
+	move.w	#16,d5
+	jsr	copy_image
 	bra.s	.text_end
 
 .text_start:
-	lea	start_str,a2
-	move.w	#48,d2
+	; Draw PRESS FIRE TO START
+	lea	text_image,a0
+	add.l	#34,a0
+	move.l	screen_next,a1
+	clr.w	d0		; Texts start at 0,64
+	move.w	#64,d1
+	clr.w	d2		; Draw at 0,128
 	move.w	#128,d3
-	jsr	draw_text16
+	move.w	#304,d4		; Size of text is 304,16
+	move.w	#16,d5
+	jsr	copy_image
 	;bra.s	.text_end
 
 .text_end:
@@ -272,84 +287,6 @@ intro:
 	cmp.b	#$39,$fffc02
 	bne	.loop
 
-	rts
-
-	; Draw ASCII text pointed to in a2 to screen_next at d2=x, d3=y
-	; NOTE: x must be a multiple of 16 (for now)
-	; NOTE: make sure that the text will fit (each character is 16x16 pixels)
-draw_text16:
-	; Setup registers for copy_image
-	lea	font16,a0
-	add.l	#34,a0
-	move.l	screen_next,a1
-	move.l	#16,d4
-	move.l	#16,d5
-
-.char_loop:
-	move.b	(a2)+,d0	; Next character in d0
-	beq	.end		; Stop at null terminator
-
-	; Figure out where in the font buffer this character starts
-	and.l	#$ff,d0		; Remove junk in higher d0
-	add.b	#-$20,d0	; Align ASCII with font number
-
-	; Is the below even faster than divu?
-	clr.w	d1
-.div_loop:
-	addq.b	#1,d1
-	add.b	#-10,d0
-	bpl.s	.div_loop
-	add.b	#10,d0
-	add.b	#-1,d1
-
-	lsl.w	#4,d0
-	lsl.w	#4,d1
-	; font x is in d0
-	; font y is in d1
-
-	jsr	copy_image
-	add.w	d4,d2		; dest x += width
-	bra.s	.char_loop
-.end:
-	rts
-
-	; Draw ASCII text pointed to in a2 to screen_next at d2=x, d3=y
-	; NOTE: x must be a multiple of 16 (for now)
-	; NOTE: make sure that the text will fit (each character is 32x32 pixels)
-draw_text32:
-	; Setup registers for copy_image
-	lea	font32,a0
-	add.l	#34,a0
-	move.l	screen_next,a1
-	move.l	#32,d4
-	move.l	#32,d5
-
-.char_loop:
-	move.b	(a2)+,d0	; Next character in d0
-	beq	.end		; Stop at null terminator
-
-	; Figure out where in the font buffer this character starts
-	and.l	#$ff,d0		; Remove junk in higher d0
-	add.b	#-$20,d0	; Align ASCII with font number
-
-	; Is the below even faster than divu?
-	clr.w	d1
-.div_loop:
-	addq.b	#1,d1
-	add.b	#-10,d0
-	bpl.s	.div_loop
-	add.b	#10,d0
-	add.b	#-1,d1
-
-	lsl.w	#5,d0
-	lsl.w	#5,d1
-	; font x is in d0
-	; font y is in d1
-
-	jsr	copy_image
-	add.w	d4,d2		; dest x += width
-	bra.s	.char_loop
-.end:
 	rts
 
 	; Copies a chunk from the source buffer to the
@@ -511,14 +448,7 @@ pixel_mask	dc.w	%1000000000000000
 		dc.w	%0000000000000010
 		dc.w	%0000000000000001
 
-font32		incbin FONT32.PI1
-font16		incbin FONT16.PI1
-
-gamename_str	dc.b	"GAMENAME", 0
-awful_str	dc.b	"AWFUL SUMMER", 0
-jam_str		dc.b	"JAM 2018", 0
-by_str		dc.b	"BY NIKANOR", 0
-start_str	dc.b	"PRESS TO START", 0
+text_image	incbin TEXT.PI1
 
 	section bss
 
