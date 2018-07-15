@@ -208,7 +208,7 @@ intro:
 	; From 0.8s     we draw SPACE 2.0 with 1s fade in time
 	; From 4s to 6s we draw AWFUL SUMMER JAM 2018
 	; From 6s to 8s we draw BY NIKANOR
-	; From 8s       we draw PRESS FIRE TO START
+	; From 8s       we draw PRESS FIRE TO START, blinking 
 	cmp.w	#40,d7		; Time to draw SPACE 2.0?
 	blt	.text_end	; Not yet
 
@@ -218,7 +218,7 @@ intro:
 	move.l	screen_next,a1
 	clr.w	d0		; Texts start at 0,0
 	clr.w	d1
-	move.w	#32,d2		; Draw at 32,32
+	clr.w	d2		; Draw at 0,32
 	move.w	#32,d3
 	move.w	#272,d4		; Size of text is 272,32
 	move.w	#32,d5
@@ -350,7 +350,13 @@ intro:
 	bra.s	.text_end
 
 .text_start:
-	; Draw PRESS FIRE TO START
+	; Draw PRESS FIRE TO START, but only if (VBL & 100) < 75
+	; (so draw for 1.5s and nothing for 0.5s)
+	move.w	d7,d0
+	and.w	#100,d0
+	cmp.w	#75,d0
+	bge	.text_end
+
 	lea	text_image,a0
 	add.l	#34,a0
 	move.l	screen_next,a1
