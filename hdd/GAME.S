@@ -42,6 +42,9 @@
 	; Run intro
 	jsr	intro
 
+	; Run game
+	jsr	game
+
 	; Restore old resolution
 	move.w	old_resolution,d0
 	move.w	d0,-(sp)
@@ -66,6 +69,34 @@
 	; Quit
 	clr.l	-(a7)
 	trap	#1
+
+	; Run game
+	; Reserved registers:
+	; d7 = counter
+game:
+	; Clear palette
+	move.l	#15,d0
+	move.l	#$ffff8240,a0
+.clear_palette:
+	clr.w	(a0)
+	add.w	#2,a0
+	dbra	d0,.clear_palette
+
+	; Clear both screens
+	jsr	clear_screen
+	jsr	swap_screen
+	jsr	clear_screen
+
+	; Game loop
+.loop:
+	jsr	wait_vbl
+	jsr	clear_screen
+
+	; Run until enter is pressed
+	cmp.b	#28,$fffc02
+	bne	.loop
+
+	rts
 
 	; Run intro
 	; Reserved registers:
@@ -112,10 +143,7 @@ intro:
 
 	; Main loop
 .loop:
-	; Wait for VBL
-	move.w	#37,-(sp)
-	trap	#14
-	addq.l	#2,sp
+	jsr	wait_vbl
 
 	; Increase counter
 	addq.w	#1,d7
@@ -128,18 +156,7 @@ intro:
 	ENDC
 
 	; Swap screens
-	move.l	screen_curr,d0
-	move.l	screen_next,screen_curr
-	move.l	d0,screen_next
-	lsr.l	#8,d0
-	move.b	d0,$ffff8203
-	lsr.w	#8,d0
-	move.b	d0,$ffff8201
-
-	IFD	DEBUG_TIME
-	; Time test
-	move.w	#$707,$ffff8240
-	ENDC
+	jsr	swap_screen
 
 	; Clear screen
 	jsr	clear_screen
@@ -210,7 +227,7 @@ intro:
 	; From 6s to 8s we draw BY NIKANOR
 	; From 8s       we draw PRESS FIRE TO START, blinking 
 	cmp.w	#40,d7		; Time to draw SPACE 2.0?
-	blt	.text_end	; Not yet
+	blt	.loop		; Not yet
 
 	; Draw SPACE 2.0
 	lea	text_image,a0
@@ -319,7 +336,7 @@ intro:
 	cmp.w	#200,d7		; Time to draw AWFUL SUMMER JAM 2018?
 	bge	.text_awful
 
-	bra	.text_end
+	bra	.loop
 
 .text_awful:
 	; Draw AWFUL SUMMER JAM 2018
@@ -333,7 +350,7 @@ intro:
 	move.w	#320,d4		; Size of text is 320,16
 	move.w	#16,d5
 	jsr	copy_image
-	bra.s	.text_end
+	bra	.loop
 
 .text_by:
 	; Draw BY NIKANOR
@@ -347,7 +364,7 @@ intro:
 	move.w	#160,d4		; Size of text is 160,16
 	move.w	#16,d5
 	jsr	copy_image
-	bra.s	.text_end
+	bra	.loop
 
 .text_start:
 	; Draw PRESS FIRE TO START, but only if (VBL & 100) < 75
@@ -355,7 +372,7 @@ intro:
 	move.w	d7,d0
 	and.w	#100,d0
 	cmp.w	#75,d0
-	bge	.text_end
+	bge	.text_start2
 
 	lea	text_image,a0
 	add.l	#34,a0
@@ -367,17 +384,40 @@ intro:
 	move.w	#304,d4		; Size of text is 304,16
 	move.w	#16,d5
 	jsr	copy_image
-	;bra.s	.text_end
-
-.text_end:
-	IFD	DEBUG_TIME
-	; Time test
-	move.w	#$0,$ffff8240
-	ENDC
-
+	
+.text_start2:
 	; Loop if spacebar not pressed
 	cmp.b	#$39,$fffc02
 	bne	.loop
+	rts
+
+swap_screen:
+	move.l	d0,-(sp)
+	move.l	screen_curr,d0
+	move.l	screen_next,screen_curr
+	move.l	d0,screen_next
+	lsr.l	#8,d0
+	move.b	d0,$ffff8203
+	lsr.w	#8,d0
+	move.b	d0,$ffff8201
+	move.l	(sp)+,d0
+	rts
+
+wait_vbl:
+	; Time test
+	IFD	DEBUG_TIME
+	move.w	#$0,$ffff8240
+	ENDC
+
+	; Wait for VBL
+	move.w	#37,-(sp)
+	trap	#14
+	addq.l	#2,sp
+
+	; Time test
+	IFD	DEBUG_TIME
+	move.w	#$707,$ffff8240
+	ENDC
 
 	rts
 
