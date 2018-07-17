@@ -56,7 +56,7 @@
 	move.l	d0,screen_next
 
 	; Run intro
-	jsr	intro
+	;jsr	intro
 
 	; Run game
 	jsr	game
