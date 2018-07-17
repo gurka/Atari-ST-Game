@@ -40,6 +40,29 @@ game:
 	; Increase counter
 	addq.w	#1,d7
 
+	; Move ship up/down if joy up/down is pressed
+	move.b	joy_data+1,d0
+	btst	#0,d0
+	bne.s	.move_up
+	btst	#1,d0
+	bne.s	.move_down
+	bra.s	.move_done
+
+.move_up:
+	; Move player up unless already at top (y = 0)
+	cmp	#0,d6
+	beq	.move_done
+	add.w	#-1,d6
+	bra.s	.move_done
+
+.move_down:
+	; Move player down unless already at bottom (y = 200-23)
+	cmp	#177,d6
+	beq	.move_done
+	add.w	#1,d6
+	;bra.s	.move_done
+
+.move_done:
 	; Draw ship at 64,80
 	lea	sprite_image,a0
 	add.l	#34,a0
@@ -88,7 +111,7 @@ game:
 	move.w	#23,d1
 	move.w	#48,d2		; Draw at 48,player_y+12
 	move.w	d6,d3
-	add.w	#13,d3
+	add.w	#12,d3
 	move.w	#16,d4		; Size of fire is 16,7
 	move.w	#7,d5
 	jsr	copy_image

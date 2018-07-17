@@ -288,9 +288,10 @@ intro:
 	jsr	copy_image
 	
 .text_start2:
-	; Loop if spacebar not pressed
-	cmp.b	#$39,$fffc02
-	bne	.loop
+	; Loop if joy #1 fire not pressed
+	move.b	joy_data+1,d0
+	btst	#7,d0
+	beq	.loop
 	rts
 
 	section data

@@ -32,6 +32,22 @@
 	trap	#14
 	add.l	#12,sp
 
+	; Setup IKBD handler
+	move.w	#34,-(sp)		; Retrieve IKBD vector table
+	trap	#14
+	addq.l	#2,sp
+
+	move.l	d0,ikbd_vec		; Store IKBD vector addr
+	move.l	d0,a0
+	move.l	24(a0),old_joy		; Backup old joystick vector
+	move.l	#read_joy,24(a0)	; Install new joystick vector
+
+	move.l	#joy_on,-(sp)		; Configure IKBD with joystick on
+	move.w	#0,-(sp)
+	move.w	#25,-(sp)
+	trap	#14
+	addq.l	#8,sp
+
 	; Setup screen buffers
 	move.l	#screen_buffer,d0
 	clr.b	d0
@@ -44,6 +60,16 @@
 
 	; Run game
 	jsr	game
+
+	; Restore IKBD handler
+	move.l	#mouse_on,-(sp)		; Configure IKBD with mouse on
+	move.w	#0,-(sp)
+	move.w	#25,-(sp)
+	trap	#14
+	addq.l	#8,sp
+
+	move.l	ikbd_vec,a0		; Restore joystick vector
+	move.l	old_joy,24(a0)
 
 	; Restore old resolution
 	move.w	old_resolution,d0
@@ -69,6 +95,11 @@
 	; Quit
 	clr.l	-(a7)
 	trap	#1
+
+read_joy:
+	move.b	1(a0),joy_data
+	move.b	2(a0),joy_data+1
+	rts
 
 swap_screen:
 	move.l	d0,-(sp)
@@ -234,6 +265,11 @@ old_screen	dc.l	0
 screen_curr	dc.l	0
 screen_next	dc.l	0
 
+joy_on		dc.b	$14
+mouse_on	dc.b	$08
+ikbd_vec	dc.l	0
+old_joy		dc.l	0
+
 	; 512 bytes of random bytes 0..199
 random_200	incbin R200.BIN
 random_200_i	dc.w	0
@@ -264,6 +300,7 @@ pixel_mask	dc.w	%1000000000000000
 old_palette	ds.l	8
 		ds.b	255
 screen_buffer	ds.b	64000
+joy_data	ds.b	2
 
 	include	INTRO.S
 	include	GAME.S
