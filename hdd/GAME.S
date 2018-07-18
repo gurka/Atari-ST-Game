@@ -5,8 +5,38 @@
 	; d6 = player_y
 	; d7 = counter
 game:
+	; Clear random indices
+	clr.w	random_200_i
+	clr.w	random_320_i
+
+	; Setup stars
+	lea	random_200,a0
+	lea	random_320,a1
+	lea	stars_game,a2
+	move.w	#31,d1
+.star_init:
+	clr.b	(a2)+
+	move.b	(a0)+,(a2)+
+	move.w	(a1)+,(a2)+
+	dbra	d1,.star_init	
+
+	; Adjust random indices
+	move.w	#32,random_200_i
+	move.w	#32,random_320_i
+
+	; Init player_y
 	move.w	#90,d6
+
+	; Clear counter
 	clr.l	d7
+
+	; Init missiles (num_missiles = 0 and all missiles x/y = -1)
+	clr.b	num_missiles
+	lea	missiles,a0
+	move.w	#8,d0
+.missile_init:
+	move.w	#-1,(a0)+
+	dbra	d0,.missile_init
 
 	; Clear both screens
 	jsr	clear_screen
@@ -40,6 +70,65 @@ game:
 	; Increase counter
 	addq.w	#1,d7
 
+	; Draw stars
+	lea	stars_game,a0
+	move.w	#31,d0
+.draw_stars:
+	move.w	0(a0),d1	; y position
+	move.w	2(a0),d2	; x position
+	move.l	screen_next,a1
+
+	; Find correct line
+	mulu	#160,d1		; 160 bytes per line
+	add.w	d1,a1
+
+	; Find correct group
+	move.w	d2,d3
+	lsr	#1,d3
+	and.w	#$fff8,d3
+	add.w	d3,a1
+
+	; Fetch mask
+	; mask index = group index = x % 16
+	; offset in pixel_mask = (x % 16) << 1
+	;                      = (x & 15) << 1
+	; (each mask is 2 bytes)
+	move.w	d2,d3
+	and.w	#15,d3
+	lsl	#1,d3
+	lea	pixel_mask,a2
+	add.w	d3,a2
+	move.w	(a2),d3
+
+	; Write mask to bitplane 4, which will make the
+	; final color %1000 = 8
+	add.w	#6,a1
+	or.w	d3,(a1)
+
+	; Move star
+	add.w	#-1,d2
+	move.w	d2,2(a0)
+	tst.w	d2
+	bpl	.star_alive
+
+	; Star is outside the screen, pick a new y position
+	lea	random_200,a1
+	add.w	random_200_i,a1
+	add.w	#1,random_200_i
+	and.w	#511,random_200_i	; cap index to 512
+	clr.w	d1
+	move.b	(a1),d1
+
+	; Set new x and y
+	move.w	d1,0(a0)
+	move.w	#319,2(a0)
+
+.star_alive:
+	; Next star
+	add.w	#4,a0
+
+	dbra	d0,.draw_stars
+
 	; Move ship up/down if joy up/down is pressed
 	; Also decide ship sprite to draw based on movement
 	; Ship sprites are (in sprite image):
@@ -72,6 +161,34 @@ game:
 	;bra.s	.move_done
 
 .move_done:
+	; Fire missile if fire is pressed
+	move.b	joy_data+1,d0
+	btst	#7,d0
+	bne	.no_fire
+
+	; Check if we can add another missile
+	cmp.w	#4,num_missiles
+	beq	.no_fire
+
+	; Find free missile struct
+	lea	missiles,a0
+	cmp.w	#-1,(a0)	; check if 1st missile struct is free
+	beq	.missile_found
+	add.l	#2,a0
+	cmp.w	#-1,(a0)	; check if 2nd missile struct is free
+	beq	.missile_found
+	add.l	#2,a0
+	cmp.w	#-1,(a0)	; check if 3rd missile struct is free
+	beq	.missile_found
+	add.l	#2,a0
+				; 4th missile struct must be free...
+.missile_found:
+	; Set struct with new missile
+	move.w	#49,(a0)+	; set x (just in front of ship)
+	move.w	d6,(a0)		; set y (same as ship)
+	add.w	#10,(a0)	; adjust wrt ship height
+
+.no_fire:
 	; Draw ship
 	lea	sprite_image,a0
 	add.l	#34,a0
@@ -97,10 +214,9 @@ game:
 	move.w	#7,d5
 	jsr	copy_image
 
-	; Run until fire is pressed
-	move.b	joy_data+1,d0
-	btst	#7,d0
-	beq	.loop
+	; Run for 10 seconds (500 VBLs)
+	cmp.w	#500,d7
+	bne	.loop
 
 	rts
 
@@ -108,4 +224,11 @@ game:
 
 sprite_image	incbin SPRITES.PI1
 
-	;section bss
+	section bss
+
+	; 32 stars: 2b y pos, 2b x pos
+stars_game	ds.w	32*2
+
+	; missile
+num_missiles	ds.b	1	; 0..4 missiles
+missiles	ds.w	4*2	; 2b x pos, 2b y pos
