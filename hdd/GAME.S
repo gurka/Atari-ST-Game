@@ -30,14 +30,6 @@ game:
 	; Clear counter
 	clr.l	d7
 
-	; Init missiles (num_missiles = 0 and all missiles x/y = -1)
-	clr.b	num_missiles
-	lea	missiles,a0
-	move.w	#8,d0
-.missile_init:
-	move.w	#-1,(a0)+
-	dbra	d0,.missile_init
-
 	; Clear both screens
 	jsr	clear_screen
 	jsr	swap_screen
@@ -129,6 +121,66 @@ game:
 
 	dbra	d0,.draw_stars
 
+	; Fire missile if fire is pressed
+	move.b	joy_data+1,d0
+	btst	#7,d0
+	beq.s	.no_fire
+
+	; Check if a missile is alive
+	cmp.w	#-1,missile_x
+	bne.s	.move_missile	; no need to check for -1 again
+
+	; Set missile position
+	move.w	#49,missile_x	; set x (just in front of ship)
+	move.w	d6,missile_y	; set y (same as ship)
+	add.w	#21,missile_y	; adjust wrt ship height
+
+.no_fire:
+	; Move and draw missile if alive
+	cmp.w	#-1,missile_x
+	beq.s	.no_missile
+
+.move_missile:
+	; Move missile
+	add.w	#1,missile_x
+	
+	; Check if missile is out of bounds
+	cmp.w	#320,missile_x
+	blt.s	.move_missile_ok
+	move.w	#-1,missile_x	; the missile is dead
+	bra.s	.no_missile
+
+.move_missile_ok:
+	; Draw missile
+	move.w	missile_y,d1
+	move.w	missile_x,d2
+	move.l	screen_next,a1
+
+	; Find correct line
+	mulu	#160,d1		; 160 bytes per line
+	add.w	d1,a1
+
+	; Find correct group
+	move.w	d2,d3
+	lsr	#1,d3
+	and.w	#$fff8,d3
+	add.w	d3,a1
+
+	; Fetch mask
+	move.w	d2,d3
+	and.w	#15,d3
+	lsl	#1,d3
+	lea	pixel_mask,a2
+	add.w	d3,a2
+	move.w	(a2),d3
+
+	; Write mask to bitplane 1 and 2, which will make the
+	; final color %0011 = 3
+	or.w	d3,(a1)
+	add.l	#2,a1
+	or.w	d3,(a1)
+
+.no_missile:
 	; Move ship up/down if joy up/down is pressed
 	; Also decide ship sprite to draw based on movement
 	; Ship sprites are (in sprite image):
@@ -161,34 +213,6 @@ game:
 	;bra.s	.move_done
 
 .move_done:
-	; Fire missile if fire is pressed
-	move.b	joy_data+1,d0
-	btst	#7,d0
-	bne	.no_fire
-
-	; Check if we can add another missile
-	cmp.w	#4,num_missiles
-	beq	.no_fire
-
-	; Find free missile struct
-	lea	missiles,a0
-	cmp.w	#-1,(a0)	; check if 1st missile struct is free
-	beq	.missile_found
-	add.l	#2,a0
-	cmp.w	#-1,(a0)	; check if 2nd missile struct is free
-	beq	.missile_found
-	add.l	#2,a0
-	cmp.w	#-1,(a0)	; check if 3rd missile struct is free
-	beq	.missile_found
-	add.l	#2,a0
-				; 4th missile struct must be free...
-.missile_found:
-	; Set struct with new missile
-	move.w	#49,(a0)+	; set x (just in front of ship)
-	move.w	d6,(a0)		; set y (same as ship)
-	add.w	#10,(a0)	; adjust wrt ship height
-
-.no_fire:
 	; Draw ship
 	lea	sprite_image,a0
 	add.l	#34,a0
@@ -214,6 +238,9 @@ game:
 	move.w	#7,d5
 	jsr	copy_image
 
+	; Draw missiles
+
+
 	; Run for 10 seconds (500 VBLs)
 	cmp.w	#500,d7
 	bne	.loop
@@ -223,12 +250,10 @@ game:
 	section data
 
 sprite_image	incbin SPRITES.PI1
+missile_x	dc.w	-1
+missile_y	dc.w	-1
 
 	section bss
 
 	; 32 stars: 2b y pos, 2b x pos
 stars_game	ds.w	32*2
-
-	; missile
-num_missiles	ds.b	1	; 0..4 missiles
-missiles	ds.w	4*2	; 2b x pos, 2b y pos
