@@ -21,6 +21,7 @@ game:
 
 	rts
 
+
 setup:
 	; Clear random indices
 	clr.w	random_200_i
@@ -31,11 +32,11 @@ setup:
 	lea	random_320,a1
 	lea	stars_game,a2
 	move.w	#31,d1
-.star_init:
+.star_setup_loop:
 	clr.b	(a2)+
 	move.b	(a0)+,(a2)+
 	move.w	(a1)+,(a2)+
-	dbra	d1,.star_init	
+	dbra	d1,.star_setup_loop	
 
 	; Adjust random indices
 	move.w	#32,random_200_i
@@ -72,130 +73,58 @@ setup:
 
 	rts
 
-	; TODO: Move draw stuff from logic to draw
+
 logic:
 	; Increase counter
 	addq.w	#1,d7
 
-	; Draw stars
+	; Move stars
 	lea	stars_game,a0
 	move.w	#31,d0
-.draw_stars:
+.move_stars:
 	move.w	0(a0),d1	; y position
 	move.w	2(a0),d2	; x position
 	move.l	screen_next,a1
 
-	; Find correct line
-	mulu	#160,d1		; 160 bytes per line
-	add.w	d1,a1
-
-	; Find correct group
-	move.w	d2,d3
-	lsr	#1,d3
-	and.w	#$fff8,d3
-	add.w	d3,a1
-
-	; Fetch mask
-	; mask index = group index = x % 16
-	; offset in pixel_mask = (x % 16) << 1
-	;                      = (x & 15) << 1
-	; (each mask is 2 bytes)
-	move.w	d2,d3
-	and.w	#15,d3
-	lsl	#1,d3
-	lea	pixel_mask,a2
-	add.w	d3,a2
-	move.w	(a2),d3
-
-	; Write mask to bitplane 4, which will make the
-	; final color %1000 = 8
-	add.w	#6,a1
-	or.w	d3,(a1)
-
-	; Move star
-	add.w	#-1,d2
+	add.w	#-1,d2		; Move one pixel to the left
 	move.w	d2,2(a0)
 	tst.w	d2
-	bpl	.star_alive
+	bpl	.star_alive	; Check if outside screen
 
-	; Star is outside the screen, pick a new y position
-	lea	random_200,a1
+	lea	random_200,a1		; Find new y position
 	add.w	random_200_i,a1
 	add.w	#1,random_200_i
 	and.w	#511,random_200_i	; cap index to 512
 	clr.w	d1
 	move.b	(a1),d1
 
-	; Set new x and y
-	move.w	d1,0(a0)
+	move.w	d1,0(a0)	; Set new position
 	move.w	#319,2(a0)
 
 .star_alive:
-	; Next star
-	add.w	#4,a0
+	add.w	#4,a0		; Next star
+	dbra	d0,.move_stars
 
-	dbra	d0,.draw_stars
+	; Handle missile
+	cmp.w	#-1,missile_x	; Check if missile is alive
+	bne.s	.move_missile	; Skip checking fire button if missile is alive
 
-	; Fire missile if fire is pressed
-	move.b	joy_data+1,d0
+	move.b	joy_data+1,d0	; Check if fire is pressed
 	btst	#7,d0
-	beq.s	.no_fire
+	beq.s	.missile_done	; Missile dead and fire not pressed, continue...
 
-	; Check if a missile is alive
-	cmp.w	#-1,missile_x
-	bne.s	.move_missile	; no need to check for -1 again
-
-	; Set missile position
-	move.w	#49,missile_x	; set x (just in front of ship)
-	move.w	d6,missile_y	; set y (same as ship)
-	add.w	#21,missile_y	; adjust wrt ship height
-
-.no_fire:
-	; Move and draw missile if alive
-	cmp.w	#-1,missile_x
-	beq.s	.no_missile
+	move.w	#49,missile_x	; Spawn new missile
+	move.w	d6,missile_y
+	add.w	#21,missile_y
 
 .move_missile:
-	; Move missile
-	add.w	#1,missile_x
+	add.w	#1,missile_x	; Move missile one pixel to the right
 	
-	; Check if missile is out of bounds
-	cmp.w	#320,missile_x
-	blt.s	.move_missile_ok
-	move.w	#-1,missile_x	; the missile is dead
-	bra.s	.no_missile
+	cmp.w	#320,missile_x	; Check if missile is out of bounds
+	blt.s	.missile_done
+	move.w	#-1,missile_x	; Set the missile as dead
+.missile_done:
 
-.move_missile_ok:
-	; Draw missile
-	move.w	missile_y,d1
-	move.w	missile_x,d2
-	move.l	screen_next,a1
-
-	; Find correct line
-	mulu	#160,d1		; 160 bytes per line
-	add.w	d1,a1
-
-	; Find correct group
-	move.w	d2,d3
-	lsr	#1,d3
-	and.w	#$fff8,d3
-	add.w	d3,a1
-
-	; Fetch mask
-	move.w	d2,d3
-	and.w	#15,d3
-	lsl	#1,d3
-	lea	pixel_mask,a2
-	add.w	d3,a2
-	move.w	(a2),d3
-
-	; Write mask to bitplane 1 and 2, which will make the
-	; final color %0011 = 3
-	or.w	d3,(a1)
-	add.l	#2,a1
-	or.w	d3,(a1)
-
-.no_missile:
 	; Move ship up/down if joy up/down is pressed
 	; Also decide ship sprite to draw based on movement
 	; Ship sprites are (in sprite image):
@@ -208,7 +137,7 @@ logic:
 	bne.s	.move_up
 	btst	#1,d1
 	bne.s	.move_down
-	clr.w	d0		; set source_x to no movement sprite x
+	clr.w	ship_sprite_x		; set ship sprite x to no movement sprite x
 	bra.s	.move_done
 
 .move_up:
@@ -216,7 +145,7 @@ logic:
 	cmp	#0,d6
 	beq	.move_done
 	add.w	#-1,d6
-	move.w	#32,d0		; set source_x to up sprite x
+	move.w	#32,ship_sprite_x	; set ship sprite x to up sprite x
 	bra.s	.move_done
 
 .move_down:
@@ -224,18 +153,49 @@ logic:
 	cmp	#177,d6
 	beq	.move_done
 	add.w	#1,d6
-	move.w	#64,d0		; set source_x to down sprite x
+	move.w	#64,ship_sprite_x	; set ship sprite x to down sprite x
 	;bra.s	.move_done
 
 .move_done:
 	rts
 
+
 draw:
+	; Draw stars
+	lea	stars_game,a0
+	move.w	#31,d0
+.draw_stars:
+	move.w	0(a0),d1	; y position
+	move.w	2(a0),d2	; x position
+	move.l	screen_next,a1
+
+	mulu	#160,d1		; Go to correct line
+	add.l	d1,a1		; 160 bytes per line
+
+	move.w	d2,d3		; Find correct group
+	lsr	#1,d3
+	and.w	#$fff8,d3
+	add.l	d3,a1
+
+	move.w	d2,d3		; Fetch mask
+	and.w	#15,d3		; mask index = group index = x % 16
+	lsl	#1,d3		; offset in pixel mask = (x % 16) << 1
+	lea	pixel_mask,a2	;                      = (x & 15) << 1
+	add.l	d3,a2		; (each mask is 2 bytes)
+	move.w	(a2),d3
+
+	add.l	#6,a1		; Write mask to bitplane 4, which will make the
+	or.w	d3,(a1)		; final color %1000 = 8
+
+	add.l	#4,a0
+	dbra	d0,.draw_stars
+
 	; Draw ship
 	lea	sprite_image,a0
 	add.l	#34,a0
 	move.l	screen_next,a1
-	clr.w	d1		; Ship starts at x,0 (x set above)
+	move.w	ship_sprite_x,d0; Ship starts at x,0
+	clr.w	d1
 	move.w	#16,d2		; Draw at 16,player_y
 	move.w	d6,d3
 	move.w	#32,d4		; Size of ship is 32,23
@@ -256,8 +216,34 @@ draw:
 	move.w	#7,d5
 	jsr	copy_image
 
-	; Draw missiles
+	; Draw missile if alive
+	cmp.w	#-1,missile_x
+	beq.s	.missile_dead
 
+	move.w	missile_y,d1	; Prepare to draw the missile
+	move.w	missile_x,d2
+	move.l	screen_next,a1
+
+	mulu	#160,d1		; Find correct line
+	add.w	d1,a1		; 160 bytes per line
+
+	move.w	d2,d3		; Find correct group
+	lsr	#1,d3
+	and.w	#$fff8,d3
+	add.w	d3,a1
+
+	move.w	d2,d3		; Fetch mask
+	and.w	#15,d3
+	lsl	#1,d3
+	lea	pixel_mask,a2
+	add.w	d3,a2
+	move.w	(a2),d3
+
+	or.w	d3,(a1)		; Write mask to bitplane 1 and 2
+	add.l	#2,a1		; Final color %0011 = 3
+	or.w	d3,(a1)
+
+.missile_dead:
 	rts
 
 	section data
@@ -265,6 +251,7 @@ draw:
 sprite_image	incbin SPRITES.PI1
 missile_x	dc.w	-1
 missile_y	dc.w	-1
+ship_sprite_x	dc.w	0	; ship sprite source x (set by logic, used by draw)
 
 	section bss
 

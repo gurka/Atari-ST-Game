@@ -47,15 +47,13 @@ intro:
 .loop:
 	jsr	wait_vbl
 
+	; Exit intro if joy #1 fire is pressed
+	move.b	joy_data+1,d0
+	btst	#7,d0
+	bne	.exit
+
 	; Increase counter
 	addq.w	#1,d7
-
-	IFD	DEBUG_SLOW
-	; Only render each 16th VBL
-	move.b	d7,d0
-	and.b	#15,d0
-	bne	.demo_loop
-	ENDC
 
 	; Swap screens
 	jsr	swap_screen
@@ -73,13 +71,13 @@ intro:
 
 	; Find correct line
 	mulu	#160,d1		; 160 bytes per line
-	add.w	d1,a1
+	add.l	d1,a1
 
 	; Find correct group
 	move.w	d2,d3
 	lsr	#1,d3
 	and.w	#$fff8,d3
-	add.w	d3,a1
+	add.l	d3,a1
 
 	; Fetch mask
 	; mask index = group index = x % 16
@@ -90,12 +88,12 @@ intro:
 	and.w	#15,d3
 	lsl	#1,d3
 	lea	pixel_mask,a2
-	add.w	d3,a2
+	add.l	d3,a2
 	move.w	(a2),d3
 
 	; Write mask to bitplane 4, which will make the
 	; final color %1000 = 8
-	add.w	#6,a1
+	add.l	#6,a1
 	or.w	d3,(a1)
 
 	; Move star
@@ -106,9 +104,9 @@ intro:
 
 	; Star is outside the screen, pick a new y position
 	lea	random_200,a1
-	add.w	random_200_i,a1
-	add.w	#1,random_200_i
-	and.w	#511,random_200_i	; cap index to 512
+	add.l	random_200_i,a1
+	add.l	#1,random_200_i
+	and.l	#511,random_200_i	; cap index to 512
 	clr.w	d1
 	move.b	(a1),d1
 
@@ -118,7 +116,7 @@ intro:
 
 .star_alive:
 	; Next star
-	add.w	#4,a0
+	add.l	#4,a0
 
 	dbra	d0,.draw_stars
 
@@ -288,10 +286,9 @@ intro:
 	jsr	copy_image
 	
 .text_start2:
-	; Loop if joy #1 fire not pressed
-	move.b	joy_data+1,d0
-	btst	#7,d0
-	beq	.loop
+	bra	.loop
+
+.exit:
 	rts
 
 	section data

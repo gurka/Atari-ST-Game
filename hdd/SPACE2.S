@@ -56,9 +56,11 @@
 	move.l	d0,screen_next
 
 	; Run intro
-	;jsr	intro
+	jsr	clear_regs
+	jsr	intro
 
 	; Run game
+	jsr	clear_regs
 	jsr	game
 
 	; Restore IKBD handler
@@ -95,6 +97,24 @@
 	; Quit
 	clr.l	-(a7)
 	trap	#1
+
+clear_regs:
+	clr.l	d0
+	clr.l	d1
+	clr.l	d2
+	clr.l	d3
+	clr.l	d4
+	clr.l	d5
+	clr.l	d6
+	clr.l	d7
+	move.l	#0,a0
+	move.l	#0,a1
+	move.l	#0,a2
+	move.l	#0,a3
+	move.l	#0,a4
+	move.l	#0,a5
+	move.l	#0,a6
+	rts	
 
 read_joy:
 	move.b	1(a0),joy_data
@@ -272,11 +292,11 @@ old_joy		dc.l	0
 
 	; 512 bytes of random bytes 0..199
 random_200	incbin R200.BIN
-random_200_i	dc.w	0
+random_200_i	dc.l	0
 
 	; 1024 bytes of random words 0..319
 random_320	incbin R320.BIN
-random_320_i	dc.w	0
+random_320_i	dc.l	0
 
 pixel_mask	dc.w	%1000000000000000
 		dc.w	%0100000000000000
