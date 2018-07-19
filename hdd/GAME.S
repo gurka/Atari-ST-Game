@@ -5,6 +5,23 @@
 	; d6 = player_y
 	; d7 = counter
 game:
+	jsr	setup
+
+	; Game loop
+.loop:
+	jsr	wait_vbl
+	jsr	swap_screen
+	jsr	clear_screen
+	jsr	logic
+	jsr	draw
+
+	; Run for 10 seconds (500 VBLs)
+	cmp.w	#500,d7
+	bne	.loop
+
+	rts
+
+setup:
 	; Clear random indices
 	clr.w	random_200_i
 	clr.w	random_320_i
@@ -53,12 +70,10 @@ game:
 	move.w	#$0000,$ffff825c	; e
 	move.w	#$0000,$ffff825e	; f
 
-	; Game loop
-.loop:
-	jsr	wait_vbl
-	jsr	swap_screen
-	jsr	clear_screen
+	rts
 
+	; TODO: Move draw stuff from logic to draw
+logic:
 	; Increase counter
 	addq.w	#1,d7
 
@@ -213,6 +228,9 @@ game:
 	;bra.s	.move_done
 
 .move_done:
+	rts
+
+draw:
 	; Draw ship
 	lea	sprite_image,a0
 	add.l	#34,a0
@@ -239,11 +257,6 @@ game:
 	jsr	copy_image
 
 	; Draw missiles
-
-
-	; Run for 10 seconds (500 VBLs)
-	cmp.w	#500,d7
-	bne	.loop
 
 	rts
 
